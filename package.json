@@ -1,0 +1,95 @@
+{
+  "name": "flutter-pubgrade",
+  "displayName": "Flutter Pubgrade",
+  "description": "Manage Flutter packages: check updates, view changelogs, update with one click",
+  "version": "1.0.0",
+  "publisher": "KamranBekirov",
+  "author": {
+    "name": "Kamran Bekirov"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kamranbekirovyz/pubgrade"
+  },
+  "keywords": [
+    "flutter",
+    "dart",
+    "packages",
+    "dependencies",
+    "pubspec",
+    "changelog"
+  ],
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/pubspec.yaml"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "flutter-pubgrade",
+          "title": "pubgrade",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "flutter-pubgrade": [
+        {
+          "id": "pubgradePackages",
+          "name": "Packages"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "pubgrade.refresh",
+        "title": "Refresh Packages",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "pubgrade.updatePackage",
+        "title": "Update Package"
+      },
+      {
+        "command": "pubgrade.showChangelog",
+        "title": "Show Changelog"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "pubgrade.refresh",
+          "when": "view == pubgradePackages",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.5",
+    "@types/node": "^20.0.0",
+    "@types/semver": "^7.5.0",
+    "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^3.6.2",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "js-yaml": "^4.1.0",
+    "semver": "^7.5.0"
+  }
+}
