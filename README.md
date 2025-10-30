@@ -17,6 +17,7 @@ Want to say "thanks"? Check out our sponsors:
 - **Changelogs** - Click any package to see what changed between versions
 - **One-click updates** - Update to any version directly from changelog
 - **Automatic sorting** - Outdated packages shown first
+- **Update type indicators** - Color-coded icons for major (🔴), minor (🟡), and patch (🔵) updates
 
 ## Usage
 
