@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as semver from 'semver';
+import { UpdateType } from './types';
 
 export class PubDevClient {
   private static BASE_URL = 'https://pub.dev/api/packages';
@@ -173,10 +174,45 @@ export class PubDevClient {
   static isOutdated(currentVersion: string, latestVersion: string): boolean {
     const cleanCurrent = semver.clean(currentVersion);
     const cleanLatest = semver.clean(latestVersion);
-    
+
     if (!cleanCurrent || !cleanLatest) return false;
-    
+
     return semver.gt(cleanLatest, cleanCurrent);
+  }
+
+  static getUpdateType(currentVersion: string, latestVersion: string): UpdateType {
+    const cleanCurrent = semver.clean(currentVersion);
+    const cleanLatest = semver.clean(latestVersion);
+
+    if (!cleanCurrent || !cleanLatest) return 'none';
+
+    // Check if versions are the same
+    if (semver.eq(cleanLatest, cleanCurrent)) {
+      return 'none';
+    }
+
+    // Parse versions
+    const current = semver.parse(cleanCurrent);
+    const latest = semver.parse(cleanLatest);
+
+    if (!current || !latest) return 'none';
+
+    // Check major version change
+    if (latest.major > current.major) {
+      return 'major';
+    }
+
+    // Check minor version change
+    if (latest.minor > current.minor) {
+      return 'minor';
+    }
+
+    // Check patch version change
+    if (latest.patch > current.patch) {
+      return 'patch';
+    }
+
+    return 'none';
   }
 }
 

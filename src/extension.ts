@@ -113,11 +113,15 @@ async function refreshPackages() {
           const latestVersion = await PubDevClient.getLatestVersion(dep.name);
 
           if (latestVersion) {
+            const isOutdated = PubDevClient.isOutdated(cleanVersion, latestVersion);
+            const updateType = PubDevClient.getUpdateType(cleanVersion, latestVersion);
+
             packages.push({
               name: dep.name,
               currentVersion: cleanVersion,
               latestVersion: latestVersion,
-              isOutdated: PubDevClient.isOutdated(cleanVersion, latestVersion)
+              isOutdated: isOutdated,
+              updateType: updateType
             });
           }
         }
