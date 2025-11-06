@@ -1,9 +1,10 @@
 {
   "name": "flutter-pubgrade",
-  "displayName": "Flutter Pubgrade",
-  "description": "Manage Flutter packages: check updates, view changelogs, update with one click",
-  "version": "1.0.0",
+  "displayName": "Pubgrade",
+  "description": "Manage packages: check updates, view changelogs, update with one click",
+  "version": "1.1.0",
   "publisher": "KamranBekirov",
+  "icon": "resources/icon.png",
   "author": {
     "name": "Kamran Bekirov"
   },
