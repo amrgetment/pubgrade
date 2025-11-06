@@ -2,13 +2,16 @@
 
 Never miss a package update again. Check for updates, view changelogs, and update with one click.
 
-## 🩵 Sponsors
+<video src="https://pubgrade.dev/pubgrade.mp4" controls width="100%"></video>
 
-Want to say "thanks"? Check out our sponsors:
+## 🩵 Want to say "thanks"?
+
+If you like this package, consider checking [UserOrient](https://userorient.com), my side project for Flutter apps to collect feedback from users.
 
 <a href="https://userorient.com" target="_blank">
 	<img src="https://www.userorient.com/assets/extras/sponsor.png">
 </a>
+
 
 ## Features
 
