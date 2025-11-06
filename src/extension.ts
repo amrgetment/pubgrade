@@ -84,6 +84,27 @@ async function findPubspecPath(): Promise<string | null> {
   return pubspecPath;
 }
 
+async function processPackageBatch(dependencies: any[], startIndex: number, batchSize: number): Promise<PackageInfo[]> {
+  const batch = dependencies.slice(startIndex, startIndex + batchSize);
+  const promises = batch.map(async (dep) => {
+    const cleanVersion = PubspecParser.cleanVersion(dep.version);
+    const latestVersion = await PubDevClient.getLatestVersion(dep.name);
+
+    if (latestVersion) {
+      return {
+        name: dep.name,
+        currentVersion: cleanVersion,
+        latestVersion: latestVersion,
+        isOutdated: PubDevClient.isOutdated(cleanVersion, latestVersion)
+      };
+    }
+    return null;
+  });
+
+  const results = await Promise.all(promises);
+  return results.filter((pkg): pkg is PackageInfo => pkg !== null);
+}
+
 async function refreshPackages() {
   const pubspecPath = await findPubspecPath();
   if (!pubspecPath) return;
@@ -101,25 +122,20 @@ async function refreshPackages() {
       async (progress) => {
         const dependencies = PubspecParser.parse(pubspecPath);
         const packages: PackageInfo[] = [];
+        const batchSize = 4;
+        const totalBatches = Math.ceil(dependencies.length / batchSize);
 
-        for (let i = 0; i < dependencies.length; i++) {
-          const dep = dependencies[i];
+        for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+          const startIndex = batchIndex * batchSize;
+          const endIndex = Math.min(startIndex + batchSize, dependencies.length);
+          
           progress.report({
-            message: `Checking ${dep.name} (${i + 1}/${dependencies.length})`,
-            increment: (100 / dependencies.length)
+            message: `Checking packages ${startIndex + 1}-${endIndex} of ${dependencies.length}`,
+            increment: (batchSize / dependencies.length) * 100
           });
 
-          const cleanVersion = PubspecParser.cleanVersion(dep.version);
-          const latestVersion = await PubDevClient.getLatestVersion(dep.name);
-
-          if (latestVersion) {
-            packages.push({
-              name: dep.name,
-              currentVersion: cleanVersion,
-              latestVersion: latestVersion,
-              isOutdated: PubDevClient.isOutdated(cleanVersion, latestVersion)
-            });
-          }
+          const batchResults = await processPackageBatch(dependencies, startIndex, batchSize);
+          packages.push(...batchResults);
         }
 
         treeProvider.setPackages(packages);
@@ -195,4 +211,3 @@ async function showChangelogAsDocument(packageInfo: PackageInfo) {
 }
 
 export function deactivate() {}
-
