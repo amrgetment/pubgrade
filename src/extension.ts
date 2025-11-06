@@ -116,7 +116,7 @@ async function refreshPackages() {
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: 'Checking packages...',
+        title: 'Pubgrade:',
         cancellable: false
       },
       async (progress) => {
@@ -128,10 +128,11 @@ async function refreshPackages() {
         for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
           const startIndex = batchIndex * batchSize;
           const endIndex = Math.min(startIndex + batchSize, dependencies.length);
+          const actualBatchSize = endIndex - startIndex;
           
           progress.report({
-            message: `Checking packages ${startIndex + 1}-${endIndex} of ${dependencies.length}`,
-            increment: (batchSize / dependencies.length) * 100
+            message: `${endIndex} of ${dependencies.length} packages checked`,
+            increment: (actualBatchSize / dependencies.length) * 100
           });
 
           const batchResults = await processPackageBatch(dependencies, startIndex, batchSize);
