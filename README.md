@@ -2,7 +2,7 @@
 
 Never miss a package update again. Check for updates, view changelogs, and update with one click.
 
-<video src="https://pubgrade.dev/pubgrade.mp4" controls width="100%"></video>
+[📹 Watch demo video](https://pubgrade.dev/pubgrade.mp4)
 
 ## 🩵 Want to say "thanks"?
 
