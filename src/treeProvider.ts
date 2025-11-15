@@ -7,11 +7,28 @@ export class PackageTreeItem extends vscode.TreeItem {
     public readonly collapsibleState: vscode.TreeItemCollapsibleState
   ) {
     super(packageInfo.name, collapsibleState);
-    
+
     if (packageInfo.isOutdated) {
       this.description = `${packageInfo.currentVersion} → ${packageInfo.latestVersion}`;
-      this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'));
-      this.tooltip = `Update available: ${packageInfo.latestVersion}`;
+
+      // Set icon and tooltip based on update type
+      switch (packageInfo.updateType) {
+        case 'major':
+          this.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
+          this.tooltip = `Major update available: ${packageInfo.latestVersion} (Breaking changes possible)`;
+          break;
+        case 'minor':
+          this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'));
+          this.tooltip = `Minor update available: ${packageInfo.latestVersion} (New features)`;
+          break;
+        case 'patch':
+          this.iconPath = new vscode.ThemeIcon('info', new vscode.ThemeColor('editorInfo.foreground'));
+          this.tooltip = `Patch update available: ${packageInfo.latestVersion} (Bug fixes)`;
+          break;
+        default:
+          this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'));
+          this.tooltip = `Update available: ${packageInfo.latestVersion}`;
+      }
     } else {
       this.description = packageInfo.currentVersion;
       this.iconPath = new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'));

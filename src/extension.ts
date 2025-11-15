@@ -91,11 +91,15 @@ async function processPackageBatch(dependencies: any[], startIndex: number, batc
     const latestVersion = await PubDevClient.getLatestVersion(dep.name);
 
     if (latestVersion) {
+      const isOutdated = PubDevClient.isOutdated(cleanVersion, latestVersion);
+      const updateType = PubDevClient.getUpdateType(cleanVersion, latestVersion);
+      
       return {
         name: dep.name,
         currentVersion: cleanVersion,
         latestVersion: latestVersion,
-        isOutdated: PubDevClient.isOutdated(cleanVersion, latestVersion)
+        isOutdated: isOutdated,
+        updateType: updateType
       };
     }
     return null;
