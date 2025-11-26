@@ -1,7 +1,5 @@
 # Changelog
 
-# Changelog
-
 ## 1.4.0 - Package Ignore Controls
 
 - Ignore/unignore packages directly from the Pubgrade tree with inline actions
