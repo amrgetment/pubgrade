@@ -8,7 +8,12 @@ export class PackageTreeItem extends vscode.TreeItem {
   ) {
     super(packageInfo.name, collapsibleState);
 
-    if (packageInfo.isOutdated) {
+    if (packageInfo.isIgnored) {
+      this.description = `${packageInfo.currentVersion} (ignored)`;
+      this.iconPath = new vscode.ThemeIcon('eye-closed', new vscode.ThemeColor('descriptionForeground'));
+      this.tooltip = `Ignored - Updates will not be shown`;
+      this.contextValue = 'ignoredPackage';
+    } else if (packageInfo.isOutdated) {
       this.description = `${packageInfo.currentVersion} → ${packageInfo.latestVersion}`;
 
       // Set icon and tooltip based on update type
@@ -29,13 +34,13 @@ export class PackageTreeItem extends vscode.TreeItem {
           this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'));
           this.tooltip = `Update available: ${packageInfo.latestVersion}`;
       }
+      this.contextValue = 'outdatedPackage';
     } else {
       this.description = packageInfo.currentVersion;
       this.iconPath = new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'));
       this.tooltip = 'Up to date';
+      this.contextValue = 'upToDatePackage';
     }
-    
-    this.contextValue = packageInfo.isOutdated ? 'outdatedPackage' : 'upToDatePackage';
     
     // Add click command
     this.command = {
@@ -58,7 +63,7 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PackageTreeI
   }
 
   getOutdatedCount(): number {
-    return this.packages.filter(p => p.isOutdated).length;
+    return this.packages.filter(p => p.isOutdated && !p.isIgnored).length;
   }
 
   refresh(): void {
@@ -71,8 +76,10 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PackageTreeI
 
   getChildren(element?: PackageTreeItem): Thenable<PackageTreeItem[]> {
     if (!element) {
-      // Sort: outdated packages first, then up-to-date packages
+      // Sort: outdated packages first, then ignored packages, then up-to-date packages
       const sorted = [...this.packages].sort((a, b) => {
+        if (a.isIgnored && !b.isIgnored) return 1;
+        if (!a.isIgnored && b.isIgnored) return -1;
         if (a.isOutdated && !b.isOutdated) return -1;
         if (!a.isOutdated && b.isOutdated) return 1;
         return a.name.localeCompare(b.name); // Alphabetical within each group

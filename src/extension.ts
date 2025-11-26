@@ -56,6 +56,28 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand('pubgrade.ignorePackage', async (item) => {
+      if (item && item.packageInfo) {
+        await ignorePackage(item.packageInfo.name);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('pubgrade.unignorePackage', async (item) => {
+      if (item && item.packageInfo) {
+        await unignorePackage(item.packageInfo.name);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('pubgrade.manageIgnoredPackages', async () => {
+      await manageIgnoredPackages();
+    })
+  );
+
   // Add click handler for tree items
   context.subscriptions.push(
     vscode.commands.registerCommand('pubgrade.itemClick', async (item) => {
@@ -86,6 +108,8 @@ async function findPubspecPath(): Promise<string | null> {
 
 async function processPackageBatch(dependencies: any[], startIndex: number, batchSize: number): Promise<PackageInfo[]> {
   const batch = dependencies.slice(startIndex, startIndex + batchSize);
+  const ignoredPackages = getIgnoredPackages();
+  
   const promises = batch.map(async (dep) => {
     const cleanVersion = PubspecParser.cleanVersion(dep.version);
     const latestVersion = await PubDevClient.getLatestVersion(dep.name);
@@ -93,13 +117,15 @@ async function processPackageBatch(dependencies: any[], startIndex: number, batc
     if (latestVersion) {
       const isOutdated = PubDevClient.isOutdated(cleanVersion, latestVersion);
       const updateType = PubDevClient.getUpdateType(cleanVersion, latestVersion);
+      const isIgnored = ignoredPackages.some(pkg => pkg.name === dep.name);
       
       return {
         name: dep.name,
         currentVersion: cleanVersion,
         latestVersion: latestVersion,
         isOutdated: isOutdated,
-        updateType: updateType
+        updateType: updateType,
+        isIgnored: isIgnored
       };
     }
     return null;
@@ -213,6 +239,83 @@ async function showChangelogAsDocument(packageInfo: PackageInfo) {
   } catch (error) {
     vscode.window.showErrorMessage(`Failed to fetch changelog: ${error}`);
   }
+}
+
+function getIgnoredPackages(): { name: string; reason?: string }[] {
+  const config = vscode.workspace.getConfiguration('pubgrade');
+  return config.get<{ name: string; reason?: string }[]>('ignoredPackages', []);
+}
+
+async function setIgnoredPackages(packages: { name: string; reason?: string }[]): Promise<void> {
+  const config = vscode.workspace.getConfiguration('pubgrade');
+  await config.update('ignoredPackages', packages, vscode.ConfigurationTarget.Workspace);
+}
+
+async function ignorePackage(packageName: string): Promise<void> {
+  const reason = await vscode.window.showInputBox({
+    prompt: `Why do you want to ignore ${packageName}?`,
+    placeHolder: 'e.g., Manual override, dependency conflict, etc. (optional)'
+  });
+
+  if (reason === undefined) {
+    return; // User cancelled
+  }
+
+  const ignoredPackages = getIgnoredPackages();
+  if (ignoredPackages.some(pkg => pkg.name === packageName)) {
+    vscode.window.showInformationMessage(`${packageName} is already ignored`);
+    return;
+  }
+
+  ignoredPackages.push({ name: packageName, reason: reason || undefined });
+  await setIgnoredPackages(ignoredPackages);
+  vscode.window.showInformationMessage(`${packageName} is now ignored`);
+  await refreshPackages();
+}
+
+async function unignorePackage(packageName: string): Promise<void> {
+  const ignoredPackages = getIgnoredPackages();
+  const filtered = ignoredPackages.filter(pkg => pkg.name !== packageName);
+  
+  if (filtered.length === ignoredPackages.length) {
+    vscode.window.showInformationMessage(`${packageName} is not ignored`);
+    return;
+  }
+
+  await setIgnoredPackages(filtered);
+  vscode.window.showInformationMessage(`${packageName} is no longer ignored`);
+  await refreshPackages();
+}
+
+async function manageIgnoredPackages(): Promise<void> {
+  const ignoredPackages = getIgnoredPackages();
+  
+  if (ignoredPackages.length === 0) {
+    vscode.window.showInformationMessage('No packages are currently ignored');
+    return;
+  }
+
+  const items = ignoredPackages.map(pkg => ({
+    label: pkg.name,
+    description: pkg.reason || 'No reason provided',
+    pkg: pkg
+  }));
+
+  const selected = await vscode.window.showQuickPick(items, {
+    placeHolder: 'Select a package to unignore',
+    canPickMany: true
+  });
+
+  if (!selected || selected.length === 0) {
+    return;
+  }
+
+  const packagesToRemove = selected.map(item => item.pkg.name);
+  const filtered = ignoredPackages.filter(pkg => !packagesToRemove.includes(pkg.name));
+  
+  await setIgnoredPackages(filtered);
+  vscode.window.showInformationMessage(`Unignored ${packagesToRemove.length} package(s)`);
+  await refreshPackages();
 }
 
 export function deactivate() {}

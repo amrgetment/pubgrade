@@ -7,11 +7,17 @@ export interface PackageInfo {
   isOutdated: boolean;
   updateType: UpdateType;
   changelog?: string;
+  isIgnored?: boolean;
 }
 
 export interface PubspecDependency {
   name: string;
   version: string;
   isDev: boolean;
+}
+
+export interface IgnoredPackage {
+  name: string;
+  reason?: string;
 }
 
