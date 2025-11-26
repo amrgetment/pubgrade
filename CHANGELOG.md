@@ -1,5 +1,13 @@
 # Changelog
 
+# Changelog
+
+## 1.4.0 - Package Ignore Controls
+
+- Ignore/unignore packages directly from the Pubgrade tree with inline actions
+- Ignored packages stay visible with an eye-closed icon and are excluded from outdated counts
+- Workspace setting `pubgrade.ignoredPackages` stores ignore reasons and can be managed via the new command
+
 ## 1.3.0 - Version Type Indicators
 
 - Visual indicators for update types: major (red), minor (yellow), and patch (blue) updates
