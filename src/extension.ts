@@ -110,7 +110,7 @@ async function processPackageBatch(dependencies: any[], startIndex: number, batc
   const batch = dependencies.slice(startIndex, startIndex + batchSize);
   const ignoredPackages = getIgnoredPackages();
   
-  const promises = batch.map(async (dep) => {
+  const promises: Promise<PackageInfo | null>[] = batch.map(async (dep): Promise<PackageInfo | null> => {
     const cleanVersion = PubspecParser.cleanVersion(dep.version);
     const latestVersion = await PubDevClient.getLatestVersion(dep.name);
 
@@ -119,7 +119,7 @@ async function processPackageBatch(dependencies: any[], startIndex: number, batc
       const updateType = PubDevClient.getUpdateType(cleanVersion, latestVersion);
       const isIgnored = ignoredPackages.some(pkg => pkg.name === dep.name);
       
-      return {
+      const packageInfo: PackageInfo = {
         name: dep.name,
         currentVersion: cleanVersion,
         latestVersion: latestVersion,
@@ -127,6 +127,7 @@ async function processPackageBatch(dependencies: any[], startIndex: number, batc
         updateType: updateType,
         isIgnored: isIgnored
       };
+      return packageInfo;
     }
     return null;
   });
