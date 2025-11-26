@@ -8,6 +8,7 @@ export interface PackageInfo {
   updateType: UpdateType;
   changelog?: string;
   isIgnored?: boolean;
+  ignoreReason?: string;
 }
 
 export interface PubspecDependency {

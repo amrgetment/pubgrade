@@ -117,7 +117,9 @@ async function processPackageBatch(dependencies: any[], startIndex: number, batc
     if (latestVersion) {
       const isOutdated = PubDevClient.isOutdated(cleanVersion, latestVersion);
       const updateType = PubDevClient.getUpdateType(cleanVersion, latestVersion);
-      const isIgnored = ignoredPackages.some(pkg => pkg.name === dep.name);
+      const ignoredEntry = ignoredPackages.find(pkg => pkg.name === dep.name);
+      const isIgnored = Boolean(ignoredEntry);
+      const ignoreReason = ignoredEntry?.reason;
       
       const packageInfo: PackageInfo = {
         name: dep.name,
@@ -125,7 +127,8 @@ async function processPackageBatch(dependencies: any[], startIndex: number, batc
         latestVersion: latestVersion,
         isOutdated: isOutdated,
         updateType: updateType,
-        isIgnored: isIgnored
+        isIgnored: isIgnored,
+        ignoreReason: ignoreReason
       };
       return packageInfo;
     }

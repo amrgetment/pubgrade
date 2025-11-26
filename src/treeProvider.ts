@@ -9,9 +9,11 @@ export class PackageTreeItem extends vscode.TreeItem {
     super(packageInfo.name, collapsibleState);
 
     if (packageInfo.isIgnored) {
-      this.description = `${packageInfo.currentVersion} (ignored)`;
+      const baseDescription = `${packageInfo.currentVersion} (ignored)`;
+      this.description = packageInfo.ignoreReason ? `${baseDescription}\n${packageInfo.ignoreReason}` : baseDescription;
       this.iconPath = new vscode.ThemeIcon('eye-closed', new vscode.ThemeColor('descriptionForeground'));
-      this.tooltip = `Ignored - Updates will not be shown`;
+      const reasonLine = packageInfo.ignoreReason ? `\nReason: ${packageInfo.ignoreReason}` : '';
+      this.tooltip = `Ignored - Updates will not be shown${reasonLine}`;
       this.contextValue = 'ignoredPackage';
     } else if (packageInfo.isOutdated) {
       this.description = `${packageInfo.currentVersion} → ${packageInfo.latestVersion}`;
@@ -76,13 +78,22 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PackageTreeI
 
   getChildren(element?: PackageTreeItem): Thenable<PackageTreeItem[]> {
     if (!element) {
-      // Sort: outdated packages first, then ignored packages, then up-to-date packages
+      const priority = (pkg: PackageInfo): number => {
+        if (pkg.isOutdated && !pkg.isIgnored) {
+          return 0; // actionable updates first
+        }
+        if (pkg.isIgnored) {
+          return 1; // ignored packages before fully up-to-date
+        }
+        return 2; // up-to-date items last
+      };
+
       const sorted = [...this.packages].sort((a, b) => {
-        if (a.isIgnored && !b.isIgnored) return 1;
-        if (!a.isIgnored && b.isIgnored) return -1;
-        if (a.isOutdated && !b.isOutdated) return -1;
-        if (!a.isOutdated && b.isOutdated) return 1;
-        return a.name.localeCompare(b.name); // Alphabetical within each group
+        const diff = priority(a) - priority(b);
+        if (diff !== 0) {
+          return diff;
+        }
+        return a.name.localeCompare(b.name);
       });
       
       return Promise.resolve(
