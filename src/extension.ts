@@ -84,9 +84,9 @@ async function findPubspecPath(): Promise<string | null> {
   return pubspecPath;
 }
 
-async function processPackageBatch(dependencies: any[], startIndex: number, batchSize: number): Promise<PackageInfo[]> {
-  const batch = dependencies.slice(startIndex, startIndex + batchSize);
-  const promises = batch.map(async (dep) => {
+// --- 1. Helper function to process a SINGLE package ---
+async function fetchPackageInfo(dep: any): Promise<PackageInfo | null> {
+  try {
     const cleanVersion = PubspecParser.cleanVersion(dep.version);
     const latestVersion = await PubDevClient.getLatestVersion(dep.name);
 
@@ -102,11 +102,10 @@ async function processPackageBatch(dependencies: any[], startIndex: number, batc
         updateType: updateType
       };
     }
-    return null;
-  });
-
-  const results = await Promise.all(promises);
-  return results.filter((pkg): pkg is PackageInfo => pkg !== null);
+  } catch (e) {
+    console.error(`Error fetching ${dep.name}:`, e);
+  }
+  return null;
 }
 
 async function refreshPackages() {
@@ -114,7 +113,6 @@ async function refreshPackages() {
   if (!pubspecPath) return;
 
   try {
-    // Clear badge while loading
     treeView.badge = undefined;
 
     await vscode.window.withProgress(
@@ -126,23 +124,43 @@ async function refreshPackages() {
       async (progress) => {
         const dependencies = PubspecParser.parse(pubspecPath);
         const packages: PackageInfo[] = [];
-        const batchSize = 4;
-        const totalBatches = Math.ceil(dependencies.length / batchSize);
+        
+        // --- 2. Setup the Worker Pool ---
+        const queue = [...dependencies]; // Clone the array to act as a queue
+        const totalPackages = dependencies.length;
+        let processedCount = 0;
+        const concurrencyLimit = 4;
 
-        for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-          const startIndex = batchIndex * batchSize;
-          const endIndex = Math.min(startIndex + batchSize, dependencies.length);
-          const actualBatchSize = endIndex - startIndex;
-          
-          progress.report({
-            message: `${endIndex} of ${dependencies.length} packages checked`,
-            increment: (actualBatchSize / dependencies.length) * 100
-          });
+        // This worker function runs in a loop as long as the queue has items
+        const worker = async () => {
+            while (queue.length > 0) {
+                const dep = queue.shift(); // Grab the next item
+                if (!dep) break;
 
-          const batchResults = await processPackageBatch(dependencies, startIndex, batchSize);
-          packages.push(...batchResults);
-        }
+                // Fetch data
+                const result = await fetchPackageInfo(dep);
+                if (result) {
+                    packages.push(result);
+                }
 
+                // Report progress immediately after THIS item finishes
+                processedCount++;
+                progress.report({
+                    message: `${processedCount} of ${totalPackages} checked`,
+                    increment: (1 / totalPackages) * 100
+                });
+            }
+        };
+
+        // Create an array of N promises (workers)
+        const workers = Array(Math.min(concurrencyLimit, totalPackages))
+            .fill(null)
+            .map(() => worker());
+
+        // Wait for all workers to drain the queue
+        await Promise.all(workers);
+
+        // Finish up
         treeProvider.setPackages(packages);
         updateBadge();
         updateStatusBar();
@@ -200,7 +218,6 @@ async function showChangelogAsDocument(packageInfo: PackageInfo) {
       packageInfo.currentVersion, 
       packageInfo.latestVersion,
       async (packageName: string, version: string) => {
-        // Handle update button click
         const pubspecPath = await findPubspecPath();
         if (pubspecPath) {
           const success = await Updater.updatePackage(pubspecPath, packageName, version);
