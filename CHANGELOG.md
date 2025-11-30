@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0 - Publish Dates & Performance
+
+- Display version dates (e.g., "3 days ago", "2 months ago")
+- Worker pool refactoring for improved performance, by [@ziyad-aljohani](https://github.com/ziyad-aljohani).
+
 ## 1.3.0 - Version Type Indicators
 
 - Visual indicators for update types: major (red), minor (yellow), and patch (blue) updates
