@@ -118,7 +118,7 @@ async function refreshPackages() {
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: 'Pubgrade:',
+        title: 'Pubgrade',
         cancellable: false
       },
       async (progress) => {
