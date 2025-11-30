@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
+import { PubDevClient } from './pubdevClient';
 
 export class ChangelogView {
   private static currentPanel: vscode.WebviewPanel | undefined;
   private static updateCallback?: (packageName: string, version: string) => void;
+  private static versionDates: Map<string, Date> = new Map();
 
   static show(
     packageName: string, 
@@ -40,10 +42,36 @@ export class ChangelogView {
       this.currentPanel.onDidDispose(() => {
         this.currentPanel = undefined;
         this.updateCallback = undefined;
+        this.versionDates.clear();
       });
     }
 
-    // Update content
+    // Fetch version dates and update content
+    this.fetchVersionDatesAndUpdateContent(packageName, changelog, fromVersion, toVersion);
+  }
+
+  private static async fetchVersionDatesAndUpdateContent(
+    packageName: string,
+    changelog: string,
+    fromVersion: string,
+    toVersion: string
+  ) {
+    if (!this.currentPanel) return;
+
+    // Parse versions from changelog
+    const sections = this.parseChangelogSections(changelog);
+    
+    // Fetch dates for all versions
+    const datePromises = sections.map(async (section) => {
+      const date = await PubDevClient.getVersionPublishedDate(packageName, section.version);
+      if (date) {
+        this.versionDates.set(section.version, date);
+      }
+    });
+
+    await Promise.all(datePromises);
+
+    // Update content with dates
     this.currentPanel.title = `${packageName} Changelog`;
     this.currentPanel.webview.html = this.getWebviewContent(packageName, changelog, fromVersion, toVersion);
   }
@@ -51,10 +79,19 @@ export class ChangelogView {
   private static getWebviewContent(packageName: string, changelog: string, fromVersion: string, toVersion: string): string {
     // Parse changelog into version sections
     const sections = this.parseChangelogSections(changelog);
-    const sectionsHtml = sections.map(section => `
+    const sectionsHtml = sections.map(section => {
+      const date = this.versionDates.get(section.version);
+      const dateHtml = date 
+        ? `<span class="version-date">${PubDevClient.formatRelativeTime(date)}</span>`
+        : '';
+      
+      return `
       <div class="version-section">
         <div class="version-header">
-          <span class="version-badge">${section.version}</span>
+          <div class="version-info-line">
+            <span class="version-badge">${section.version}</span>
+            ${dateHtml}
+          </div>
           <button class="update-btn" onclick="updateToVersion('${this.escapeHtml(packageName)}', '${section.version}')">
             Update to ${section.version}
           </button>
@@ -63,7 +100,8 @@ export class ChangelogView {
           ${this.formatContent(section.content)}
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -108,6 +146,11 @@ export class ChangelogView {
       align-items: center;
       gap: 12px;
     }
+    .version-info-line {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
     .version-badge {
       background: var(--vscode-badge-background);
       color: var(--vscode-badge-foreground);
@@ -116,6 +159,10 @@ export class ChangelogView {
       font-weight: 600;
       font-size: 14px;
       display: inline-block;
+    }
+    .version-date {
+      color: var(--vscode-descriptionForeground);
+      font-size: 12px;
     }
     .update-btn {
       background: var(--vscode-button-background);

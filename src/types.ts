@@ -7,6 +7,7 @@ export interface PackageInfo {
   isOutdated: boolean;
   updateType: UpdateType;
   changelog?: string;
+  publishedDate?: Date;
 }
 
 export interface PubspecDependency {
