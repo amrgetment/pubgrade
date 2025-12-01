@@ -9,6 +9,7 @@ export interface PackageInfo {
   changelog?: string;
   isIgnored?: boolean;
   ignoreReason?: string;
+  publishedDate?: Date;
 }
 
 export interface PubspecDependency {

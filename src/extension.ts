@@ -5,7 +5,7 @@ import { PubDevClient } from './pubdevClient';
 import { PackageTreeProvider } from './treeProvider';
 import { ChangelogView } from './changelogView';
 import { Updater } from './updater';
-import { PackageInfo } from './types';
+import { PackageInfo, PubspecDependency, IgnoredPackage } from './types';
 
 let treeProvider: PackageTreeProvider;
 let statusBarItem: vscode.StatusBarItem;
@@ -85,7 +85,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage(`${item.packageInfo.name} is up to date (${item.packageInfo.currentVersion})`);
         return;
       }
-      
+
       // Directly show changelog
       await showChangelogAsDocument(item.packageInfo);
     })
@@ -106,37 +106,38 @@ async function findPubspecPath(): Promise<string | null> {
   return pubspecPath;
 }
 
-async function processPackageBatch(dependencies: any[], startIndex: number, batchSize: number): Promise<PackageInfo[]> {
-  const batch = dependencies.slice(startIndex, startIndex + batchSize);
-  const ignoredPackages = getIgnoredPackages();
-  
-  const promises: Promise<PackageInfo | null>[] = batch.map(async (dep): Promise<PackageInfo | null> => {
+async function fetchPackageInfo(
+  dep: PubspecDependency,
+  ignoredPackages: IgnoredPackage[]
+): Promise<PackageInfo | null> {
+  try {
     const cleanVersion = PubspecParser.cleanVersion(dep.version);
     const latestVersion = await PubDevClient.getLatestVersion(dep.name);
 
-    if (latestVersion) {
-      const isOutdated = PubDevClient.isOutdated(cleanVersion, latestVersion);
-      const updateType = PubDevClient.getUpdateType(cleanVersion, latestVersion);
-      const ignoredEntry = ignoredPackages.find(pkg => pkg.name === dep.name);
-      const isIgnored = Boolean(ignoredEntry);
-      const ignoreReason = ignoredEntry?.reason;
-      
-      const packageInfo: PackageInfo = {
-        name: dep.name,
-        currentVersion: cleanVersion,
-        latestVersion: latestVersion,
-        isOutdated: isOutdated,
-        updateType: updateType,
-        isIgnored: isIgnored,
-        ignoreReason: ignoreReason
-      };
-      return packageInfo;
+    if (!latestVersion) {
+      return null;
     }
-    return null;
-  });
 
-  const results = await Promise.all(promises);
-  return results.filter((pkg): pkg is PackageInfo => pkg !== null);
+    const isOutdated = PubDevClient.isOutdated(cleanVersion, latestVersion);
+    const updateType = PubDevClient.getUpdateType(cleanVersion, latestVersion);
+    const ignoredEntry = ignoredPackages.find(pkg => pkg.name === dep.name);
+    const isIgnored = Boolean(ignoredEntry);
+    const ignoreReason = ignoredEntry?.reason;
+
+    const packageInfo: PackageInfo = {
+      name: dep.name,
+      currentVersion: cleanVersion,
+      latestVersion: latestVersion,
+      isOutdated: isOutdated,
+      updateType: updateType,
+      isIgnored: isIgnored,
+      ignoreReason: ignoreReason
+    };
+    return packageInfo;
+  } catch (error) {
+    console.error(`Error fetching ${dep.name}:`, error);
+    return null;
+  }
 }
 
 async function refreshPackages() {
@@ -144,35 +145,55 @@ async function refreshPackages() {
   if (!pubspecPath) return;
 
   try {
-    // Clear badge while loading
     treeView.badge = undefined;
 
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: 'Pubgrade:',
+        title: 'Pubgrade',
         cancellable: false
       },
       async (progress) => {
         const dependencies = PubspecParser.parse(pubspecPath);
         const packages: PackageInfo[] = [];
-        const batchSize = 4;
-        const totalBatches = Math.ceil(dependencies.length / batchSize);
+        const ignoredPackages = getIgnoredPackages();
 
-        for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-          const startIndex = batchIndex * batchSize;
-          const endIndex = Math.min(startIndex + batchSize, dependencies.length);
-          const actualBatchSize = endIndex - startIndex;
-          
-          progress.report({
-            message: `${endIndex} of ${dependencies.length} packages checked`,
-            increment: (actualBatchSize / dependencies.length) * 100
-          });
+        // --- 2. Setup the Worker Pool ---
+        const queue = [...dependencies]; // Clone the array to act as a queue
+        const totalPackages = dependencies.length;
+        let processedCount = 0;
+        const concurrencyLimit = 4;
 
-          const batchResults = await processPackageBatch(dependencies, startIndex, batchSize);
-          packages.push(...batchResults);
-        }
+        // This worker function runs in a loop as long as the queue has items
+        const worker = async () => {
+          while (queue.length > 0) {
+            const dep = queue.shift(); // Grab the next item
+            if (!dep) break;
 
+            // Fetch data
+            const result = await fetchPackageInfo(dep, ignoredPackages);
+            if (result) {
+              packages.push(result);
+            }
+
+            // Report progress immediately after THIS item finishes
+            processedCount++;
+            progress.report({
+              message: `${processedCount} of ${totalPackages} checked`,
+              increment: (1 / totalPackages) * 100
+            });
+          }
+        };
+
+        // Create an array of N promises (workers)
+        const workers = Array(Math.min(concurrencyLimit, totalPackages))
+          .fill(null)
+          .map(() => worker());
+
+        // Wait for all workers to drain the queue
+        await Promise.all(workers);
+
+        // Finish up
         treeProvider.setPackages(packages);
         updateBadge();
         updateStatusBar();
@@ -225,12 +246,11 @@ async function showChangelogAsDocument(packageInfo: PackageInfo) {
     );
 
     ChangelogView.show(
-      packageInfo.name, 
-      changelog, 
-      packageInfo.currentVersion, 
+      packageInfo.name,
+      changelog,
+      packageInfo.currentVersion,
       packageInfo.latestVersion,
       async (packageName: string, version: string) => {
-        // Handle update button click
         const pubspecPath = await findPubspecPath();
         if (pubspecPath) {
           const success = await Updater.updatePackage(pubspecPath, packageName, version);
@@ -280,7 +300,7 @@ async function ignorePackage(packageName: string): Promise<void> {
 async function unignorePackage(packageName: string): Promise<void> {
   const ignoredPackages = getIgnoredPackages();
   const filtered = ignoredPackages.filter(pkg => pkg.name !== packageName);
-  
+
   if (filtered.length === ignoredPackages.length) {
     vscode.window.showInformationMessage(`${packageName} is not ignored`);
     return;
@@ -293,7 +313,7 @@ async function unignorePackage(packageName: string): Promise<void> {
 
 async function manageIgnoredPackages(): Promise<void> {
   const ignoredPackages = getIgnoredPackages();
-  
+
   if (ignoredPackages.length === 0) {
     vscode.window.showInformationMessage('No packages are currently ignored');
     return;
@@ -316,10 +336,10 @@ async function manageIgnoredPackages(): Promise<void> {
 
   const packagesToRemove = selected.map(item => item.pkg.name);
   const filtered = ignoredPackages.filter(pkg => !packagesToRemove.includes(pkg.name));
-  
+
   await setIgnoredPackages(filtered);
   vscode.window.showInformationMessage(`Unignored ${packagesToRemove.length} package(s)`);
   await refreshPackages();
 }
 
-export function deactivate() {}
+export function deactivate() { }
