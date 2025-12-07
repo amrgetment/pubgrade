@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0 - Respect Version Constraints
+
+- Updater now respects caret (^) constraints in pubspec.yaml
+- If package added as `^4.0.0`, it updates to `^4.0.1` (preserves caret)
+- If package added as `4.0.0`, it updates to `4.0.1` (no caret)
+
 ## 1.4.0 - Publish Dates & Performance
 
 - Display version dates (e.g., "3 days ago", "2 months ago")

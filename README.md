@@ -18,7 +18,7 @@ If you like this package, consider checking [UserOrient](https://userorient.com)
 - **Sidebar panel** - All packages listed with current and latest versions
 - **Outdated detection** - Warning icons and badge count for outdated packages  
 - **Changelogs** - Click any package to see what changed between versions
-- **One-click updates** - Update to any version directly from changelog
+- **One-click updates** - Update to any version directly from changelog (respects `^` constraints)
 - **Automatic sorting** - Outdated packages shown first
 - **Update type indicators** - Color-coded icons for major (🔴), minor (🟡), and patch (🔵) updates
 
