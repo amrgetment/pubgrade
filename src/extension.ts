@@ -194,9 +194,12 @@ async function refreshPackages() {
         await Promise.all(workers);
 
         // Finish up
+        const actionableOutdatedCount = packages.filter(pkg => pkg.isOutdated && !pkg.isIgnored).length;
+        const ignoredOutdatedCount = packages.filter(pkg => pkg.isOutdated && pkg.isIgnored).length;
+
         treeProvider.setPackages(packages);
-        updateBadge();
-        updateStatusBar();
+        updateBadge(actionableOutdatedCount);
+        updateStatusBar(actionableOutdatedCount, ignoredOutdatedCount);
       }
     );
   } catch (error) {
@@ -205,8 +208,11 @@ async function refreshPackages() {
   }
 }
 
-function updateBadge() {
-  const outdatedCount = treeProvider.getOutdatedCount();
+function updateBadge(outdatedCountOverride?: number) {
+  const outdatedCount = typeof outdatedCountOverride === 'number'
+    ? outdatedCountOverride
+    : treeProvider.getOutdatedCount();
+
   if (outdatedCount > 0) {
     treeView.badge = {
       tooltip: `${outdatedCount} outdated package${outdatedCount > 1 ? 's' : ''}`,
@@ -217,15 +223,24 @@ function updateBadge() {
   }
 }
 
-function updateStatusBar() {
-  const outdatedCount = treeProvider.getOutdatedCount();
-  if (outdatedCount > 0) {
-    statusBarItem.text = `$(warning) ${outdatedCount} outdated package${outdatedCount > 1 ? 's' : ''}`;
-    statusBarItem.show();
+function updateStatusBar(outdatedCountOverride?: number, ignoredCountOverride?: number) {
+  const actionableCount = typeof outdatedCountOverride === 'number'
+    ? outdatedCountOverride
+    : treeProvider.getOutdatedCount();
+
+  const ignoredCount = typeof ignoredCountOverride === 'number'
+    ? ignoredCountOverride
+    : treeProvider.getIgnoredOutdatedCount?.() ?? 0;
+
+  if (actionableCount > 0) {
+    statusBarItem.text = `$(warning) ${actionableCount} outdated package${actionableCount > 1 ? 's' : ''}`;
+  } else if (ignoredCount > 0) {
+    statusBarItem.text = `$(eye-closed) ${ignoredCount} ignored update${ignoredCount > 1 ? 's' : ''}`;
   } else {
     statusBarItem.text = `$(check) All packages up to date`;
-    statusBarItem.show();
   }
+
+  statusBarItem.show();
 }
 
 async function showChangelogAsDocument(packageInfo: PackageInfo) {

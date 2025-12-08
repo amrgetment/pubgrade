@@ -43,7 +43,7 @@ export class PackageTreeItem extends vscode.TreeItem {
       this.tooltip = 'Up to date';
       this.contextValue = 'upToDatePackage';
     }
-    
+
     // Add click command
     this.command = {
       command: 'pubgrade.itemClick',
@@ -56,7 +56,7 @@ export class PackageTreeItem extends vscode.TreeItem {
 export class PackageTreeProvider implements vscode.TreeDataProvider<PackageTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<PackageTreeItem | undefined | null | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
-  
+
   private packages: PackageInfo[] = [];
 
   setPackages(packages: PackageInfo[]) {
@@ -66,6 +66,10 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PackageTreeI
 
   getOutdatedCount(): number {
     return this.packages.filter(p => p.isOutdated && !p.isIgnored).length;
+  }
+
+  getIgnoredOutdatedCount(): number {
+    return this.packages.filter(p => p.isOutdated && p.isIgnored).length;
   }
 
   refresh(): void {
@@ -95,7 +99,7 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PackageTreeI
         }
         return a.name.localeCompare(b.name);
       });
-      
+
       return Promise.resolve(
         sorted.map(pkg => new PackageTreeItem(pkg, vscode.TreeItemCollapsibleState.None))
       );
