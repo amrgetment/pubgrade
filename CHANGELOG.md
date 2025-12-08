@@ -1,10 +1,21 @@
 # Changelog
 
-## 1.4.0 - Package Ignore Controls
+## 1.6.0 - Package Ignore Controls
 
 - Ignore/unignore packages directly from the Pubgrade tree with inline actions
 - Ignored packages stay visible with an eye-closed icon and are excluded from outdated counts
 - Workspace setting `pubgrade.ignoredPackages` stores ignore reasons and can be managed via the new command
+
+## 1.5.0 - Respect Version Constraints
+
+- Updater now respects caret (^) constraints in pubspec.yaml
+- If package added as `^4.0.0`, it updates to `^4.0.1` (preserves caret)
+- If package added as `4.0.0`, it updates to `4.0.1` (no caret)
+
+## 1.4.0 - Publish Dates & Performance
+
+- Display version dates (e.g., "3 days ago", "2 months ago")
+- Worker pool refactoring for improved performance, by [@ziyad-aljohani](https://github.com/ziyad-aljohani).
 
 ## 1.3.0 - Version Type Indicators
 
