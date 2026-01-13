@@ -31,6 +31,30 @@ If you like this package, consider checking [UserOrient](https://userorient.com)
 5. **Click a package** to view changelog
 6. **Click "Update to X.X.X"** button to update
 
+## Monorepos / multiple pubspec.yaml files
+
+By default, Pubgrade reads only the **workspace root** `pubspec.yaml`.
+
+If you work in a monorepo (melos, `packages/*`, `apps/*`, etc.) you can enable scanning **all** pubspecs in the workspace:
+
+- Setting: `pubgrade.scanAllPubspecs` (default: `false`)
+
+When enabled:
+
+- Pubgrade finds `**/pubspec.yaml` across **all workspace folders** (multi-root supported)
+- It ignores pubspecs inside these folders: `build`, `ios`, `macos`, `android`, `windows`, `linux`, `web`
+- The tree is grouped by pubspec (group label uses pubspec `name:`; fallback is relative path)
+- Pubspec groups are sorted by path with root-level pubspec(s) shown first
+
+### Hide pubspecs from the grouped view
+
+If you have generated or internal packages you don’t want to see, you can hide them from the grouped view:
+
+- Right-click a pubspec group → **Ignore Pubspec**
+- Or use **Manage Ignored Pubspecs** in the view toolbar
+
+This stores the relative pubspec paths in the workspace setting `pubgrade.ignoredPubspecs`.
+
 ## License
 
 [MIT](LICENSE)

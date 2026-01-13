@@ -2,7 +2,7 @@
   "name": "flutter-pubgrade",
   "displayName": "Pubgrade",
   "description": "Manage packages: check updates, view changelogs, update with one click",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "publisher": "KamranBekirov",
   "icon": "resources/icon.png",
   "author": {
@@ -56,6 +56,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "pubgrade.ignorePubspec",
+        "title": "Ignore Pubspec",
+        "icon": "$(circle-slash)"
+      },
+      {
         "command": "pubgrade.updatePackage",
         "title": "Update Package"
       },
@@ -77,6 +82,11 @@
         "command": "pubgrade.manageIgnoredPackages",
         "title": "Manage Ignored Packages",
         "icon": "$(list-selection)"
+      },
+      {
+        "command": "pubgrade.manageIgnoredPubspecs",
+        "title": "Manage Ignored Pubspecs",
+        "icon": "$(file-directory)"
       }
     ],
     "menus": {
@@ -87,12 +97,27 @@
           "group": "navigation"
         },
         {
+          "command": "pubgrade.ignorePubspec",
+          "when": "view == pubgradePackages",
+          "group": "navigation@1"
+        },
+        {
           "command": "pubgrade.manageIgnoredPackages",
           "when": "view == pubgradePackages",
           "group": "navigation@2"
+        },
+        {
+          "command": "pubgrade.manageIgnoredPubspecs",
+          "when": "view == pubgradePackages",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
+        {
+          "command": "pubgrade.ignorePubspec",
+          "when": "view == pubgradePackages && viewItem == pubspecGroup",
+          "group": "navigation"
+        },
         {
           "command": "pubgrade.ignorePackage",
           "when": "view == pubgradePackages && viewItem == outdatedPackage",
@@ -113,6 +138,19 @@
     "configuration": {
       "title": "Pubgrade",
       "properties": {
+        "pubgrade.scanAllPubspecs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Scan all pubspec.yaml files in the workspace (monorepo). When disabled, only the workspace root pubspec.yaml is used."
+        },
+        "pubgrade.ignoredPubspecs": {
+          "type": "array",
+          "default": [],
+          "description": "Relative paths of pubspec.yaml files to hide from Pubgrade when scanning all pubspecs (monorepo).",
+          "items": {
+            "type": "string"
+          }
+        },
         "pubgrade.ignoredPackages": {
           "type": "array",
           "description": "Packages that Pubgrade should ignore when suggesting updates.",

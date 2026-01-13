@@ -1,5 +1,21 @@
 import * as vscode from 'vscode';
-import { PackageInfo } from './types';
+import { PackageInfo, PubspecGroup } from './types';
+
+export class PubspecTreeItem extends vscode.TreeItem {
+  constructor(
+    public readonly group: PubspecGroup,
+    public readonly collapsibleState: vscode.TreeItemCollapsibleState
+  ) {
+    super(group.pubspec.pubspecName || group.pubspec.relativePath, collapsibleState);
+
+    const displayPath = group.pubspec.relativePath;
+    this.description = displayPath !== this.label ? displayPath : undefined;
+    this.tooltip = displayPath;
+    this.iconPath = new vscode.ThemeIcon('package');
+    this.contextValue = 'pubspecGroup';
+    // Intentionally no click command: clicking expands/collapses.
+  }
+}
 
 export class PackageTreeItem extends vscode.TreeItem {
   constructor(
@@ -53,14 +69,28 @@ export class PackageTreeItem extends vscode.TreeItem {
   }
 }
 
-export class PackageTreeProvider implements vscode.TreeDataProvider<PackageTreeItem> {
-  private _onDidChangeTreeData = new vscode.EventEmitter<PackageTreeItem | undefined | null | void>();
+export type PubgradeTreeItem = PubspecTreeItem | PackageTreeItem;
+
+export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTreeItem> {
+  private _onDidChangeTreeData = new vscode.EventEmitter<PubgradeTreeItem | undefined | null | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   private packages: PackageInfo[] = [];
+  private groups: PubspecGroup[] | null = null;
+  private groupByPath: Map<string, PubspecGroup> = new Map();
 
   setPackages(packages: PackageInfo[]) {
+    this.groups = null;
+    this.groupByPath.clear();
     this.packages = packages;
+    this._onDidChangeTreeData.fire();
+  }
+
+  setGroups(groups: PubspecGroup[]) {
+    this.groups = groups;
+    this.groupByPath = new Map(groups.map(g => [g.pubspec.pubspecPath, g]));
+    // Keep a flattened list for counts/badges.
+    this.packages = groups.flatMap(g => g.packages);
     this._onDidChangeTreeData.fire();
   }
 
@@ -76,12 +106,27 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PackageTreeI
     this._onDidChangeTreeData.fire();
   }
 
-  getTreeItem(element: PackageTreeItem): vscode.TreeItem {
+  getTreeItem(element: PubgradeTreeItem): vscode.TreeItem {
     return element;
   }
 
-  getChildren(element?: PackageTreeItem): Thenable<PackageTreeItem[]> {
+  getChildren(element?: PubgradeTreeItem): Thenable<PubgradeTreeItem[]> {
     if (!element) {
+      if (this.groups) {
+        const sortedGroups = [...this.groups].sort((a, b) => {
+          // Root pubspecs first
+          const rootDiff = Number(b.pubspec.isWorkspaceRootPubspec) - Number(a.pubspec.isWorkspaceRootPubspec);
+          if (rootDiff !== 0) {
+            return rootDiff;
+          }
+          return a.pubspec.relativePath.localeCompare(b.pubspec.relativePath);
+        });
+
+        return Promise.resolve(
+          sortedGroups.map(g => new PubspecTreeItem(g, vscode.TreeItemCollapsibleState.Collapsed))
+        );
+      }
+
       const priority = (pkg: PackageInfo): number => {
         if (pkg.isOutdated && !pkg.isIgnored) {
           return 0; // actionable updates first
@@ -104,6 +149,34 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PackageTreeI
         sorted.map(pkg => new PackageTreeItem(pkg, vscode.TreeItemCollapsibleState.None))
       );
     }
+
+    if (element instanceof PubspecTreeItem) {
+      const group = this.groupByPath.get(element.group.pubspec.pubspecPath);
+      const packages = group?.packages ?? [];
+
+      const priority = (pkg: PackageInfo): number => {
+        if (pkg.isOutdated && !pkg.isIgnored) {
+          return 0;
+        }
+        if (pkg.isIgnored) {
+          return 1;
+        }
+        return 2;
+      };
+
+      const sorted = [...packages].sort((a, b) => {
+        const diff = priority(a) - priority(b);
+        if (diff !== 0) {
+          return diff;
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+      return Promise.resolve(
+        sorted.map(pkg => new PackageTreeItem(pkg, vscode.TreeItemCollapsibleState.None))
+      );
+    }
+
     return Promise.resolve([]);
   }
 }

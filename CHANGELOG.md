@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.0 - Monorepo Pubspec Scanning
+
+- Monorepo support (opt-in): scan all `pubspec.yaml` files in the workspace via `pubgrade.scanAllPubspecs` (default: false)
+- Results are grouped by pubspec (label from pubspec `name:` with relative-path fallback)
+- Pubspec groups are sorted by path with root-level pubspec(s) shown first
+- Ignore pubspec groups to hide them from the monorepo scan (workspace setting `pubgrade.ignoredPubspecs`)
+- Reduced pub.dev traffic by caching latest-version lookups across pubspecs
+
 ## 1.6.0 - Package Ignore Controls
 
 - Ignore/unignore packages directly from the Pubgrade tree with inline actions

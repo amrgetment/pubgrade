@@ -5,15 +5,18 @@ export class ChangelogView {
   private static currentPanel: vscode.WebviewPanel | undefined;
   private static updateCallback?: (packageName: string, version: string) => void;
   private static versionDates: Map<string, Date> = new Map();
+  private static sourcePubspecLabel?: string;
 
   static show(
-    packageName: string, 
-    changelog: string, 
-    fromVersion: string, 
+    packageName: string,
+    changelog: string,
+    fromVersion: string,
     toVersion: string,
-    onUpdate?: (packageName: string, version: string) => void
+    onUpdate?: (packageName: string, version: string) => void,
+    sourcePubspecLabel?: string
   ) {
     this.updateCallback = onUpdate;
+    this.sourcePubspecLabel = sourcePubspecLabel;
 
     if (this.currentPanel) {
       // Reuse existing panel
@@ -43,6 +46,7 @@ export class ChangelogView {
         this.currentPanel = undefined;
         this.updateCallback = undefined;
         this.versionDates.clear();
+        this.sourcePubspecLabel = undefined;
       });
     }
 
@@ -60,7 +64,7 @@ export class ChangelogView {
 
     // Parse versions from changelog
     const sections = this.parseChangelogSections(changelog);
-    
+
     // Fetch dates for all versions
     const datePromises = sections.map(async (section) => {
       const date = await PubDevClient.getVersionPublishedDate(packageName, section.version);
@@ -72,19 +76,27 @@ export class ChangelogView {
     await Promise.all(datePromises);
 
     // Update content with dates
-    this.currentPanel.title = `${packageName} Changelog`;
-    this.currentPanel.webview.html = this.getWebviewContent(packageName, changelog, fromVersion, toVersion);
+    this.currentPanel.title = this.sourcePubspecLabel
+      ? `${packageName} Changelog — ${this.sourcePubspecLabel}`
+      : `${packageName} Changelog`;
+    this.currentPanel.webview.html = this.getWebviewContent(packageName, changelog, fromVersion, toVersion, this.sourcePubspecLabel);
   }
 
-  private static getWebviewContent(packageName: string, changelog: string, fromVersion: string, toVersion: string): string {
+  private static getWebviewContent(
+    packageName: string,
+    changelog: string,
+    fromVersion: string,
+    toVersion: string,
+    sourcePubspecLabel?: string
+  ): string {
     // Parse changelog into version sections
     const sections = this.parseChangelogSections(changelog);
     const sectionsHtml = sections.map(section => {
       const date = this.versionDates.get(section.version);
-      const dateHtml = date 
+      const dateHtml = date
         ? `<span class="version-date">${PubDevClient.formatRelativeTime(date)}</span>`
         : '';
-      
+
       return `
       <div class="version-section">
         <div class="version-header">
@@ -131,6 +143,15 @@ export class ChangelogView {
       border-radius: 6px;
       border-left: 3px solid var(--vscode-textLink-foreground);
       font-size: 14px;
+    }
+    .source-info {
+      margin-top: 10px;
+      color: var(--vscode-descriptionForeground);
+      font-size: 12px;
+    }
+    .source-info code {
+      font-family: var(--vscode-editor-font-family);
+      font-size: 12px;
     }
     .version-section {
       margin-bottom: 24px;
@@ -221,6 +242,7 @@ export class ChangelogView {
     <div class="version-info">
       📦 Update: ${this.escapeHtml(fromVersion)} → ${this.escapeHtml(toVersion)}
     </div>
+    ${sourcePubspecLabel ? `<div class="source-info">Pubspec: <code>${this.escapeHtml(sourcePubspecLabel)}</code></div>` : ''}
   </div>
   
   ${sectionsHtml || '<div class="empty-state">No changelog entries found for this version range.</div>'}
@@ -246,8 +268,8 @@ export class ChangelogView {
 </html>`;
   }
 
-  private static parseChangelogSections(changelog: string): Array<{version: string, content: string}> {
-    const sections: Array<{version: string, content: string}> = [];
+  private static parseChangelogSections(changelog: string): Array<{ version: string, content: string }> {
+    const sections: Array<{ version: string, content: string }> = [];
     const lines = changelog.split('\n');
     let currentVersion = '';
     let currentContent: string[] = [];
@@ -255,7 +277,7 @@ export class ChangelogView {
     for (const line of lines) {
       // Match version headers: ## 1.2.3, # 1.2.3, ## [1.2.3], etc.
       const versionMatch = line.match(/^#+\s*\[?v?(\d+\.\d+\.\d+[^\]\s]*)\]?/);
-      
+
       if (versionMatch) {
         // Save previous section
         if (currentVersion && currentContent.length > 0) {
@@ -294,7 +316,7 @@ export class ChangelogView {
 
     for (let line of lines) {
       line = this.escapeHtml(line);
-      
+
       // Check if it's a list item
       if (line.match(/^\s*[-*•]\s/)) {
         if (!inList) {

@@ -5,10 +5,48 @@ import { UpdateType } from './types';
 export class PubDevClient {
   private static BASE_URL = 'https://pub.dev/api/packages';
 
+  // Cache latest versions to reduce network calls (especially in monorepos).
+  // TTL is intentionally short to keep results fresh.
+  private static latestVersionCache = new Map<string, { value: string | null; expiresAt: number }>();
+  private static latestVersionInFlight = new Map<string, Promise<string | null>>();
+  private static readonly LATEST_VERSION_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
   static async getLatestVersion(packageName: string): Promise<string | null> {
     try {
-      const response = await axios.get(`${this.BASE_URL}/${packageName}`);
-      return response.data.latest.version;
+      const now = Date.now();
+      const cached = this.latestVersionCache.get(packageName);
+      if (cached && cached.expiresAt > now) {
+        return cached.value;
+      }
+
+      const inFlight = this.latestVersionInFlight.get(packageName);
+      if (inFlight) {
+        return await inFlight;
+      }
+
+      const requestPromise = (async () => {
+        try {
+          const response = await axios.get(`${this.BASE_URL}/${packageName}`);
+          const value: string | null = response?.data?.latest?.version ?? null;
+          this.latestVersionCache.set(packageName, {
+            value,
+            expiresAt: Date.now() + this.LATEST_VERSION_TTL_MS
+          });
+          return value;
+        } catch (error) {
+          console.error(`Failed to fetch ${packageName}:`, error);
+          this.latestVersionCache.set(packageName, {
+            value: null,
+            expiresAt: Date.now() + 60 * 1000 // 1 minute for failures
+          });
+          return null;
+        } finally {
+          this.latestVersionInFlight.delete(packageName);
+        }
+      })();
+
+      this.latestVersionInFlight.set(packageName, requestPromise);
+      return await requestPromise;
     } catch (error) {
       console.error(`Failed to fetch ${packageName}:`, error);
       return null;
@@ -57,22 +95,22 @@ export class PubDevClient {
         }
       });
       const html = response.data;
-      
+
       // Try multiple extraction methods
       let changelog = this.extractChangelogFromHtml(html);
-      
+
       console.log(`[Pubgrade] Extracted changelog length for ${packageName}:`, changelog.length);
       console.log(`[Pubgrade] First 500 chars:`, changelog.substring(0, 500));
-      
+
       if (!changelog || changelog.length < 20) {
         console.log(`[Pubgrade] Changelog too short for ${packageName}`);
         return `# Changelog\n\nChangelog for ${packageName} could not be parsed.\n\nView online: https://pub.dev/packages/${packageName}/changelog`;
       }
-      
+
       // Format and filter relevant versions
       const formatted = this.formatChangelog(changelog, fromVersion, toVersion);
       console.log(`[Pubgrade] Formatted changelog length:`, formatted.length);
-      
+
       return formatted;
     } catch (error) {
       console.error(`[Pubgrade] Error fetching changelog for ${packageName}:`, error);
@@ -163,22 +201,22 @@ export class PubDevClient {
     const lines = changelog.split('\n');
     const relevantLines: string[] = [];
     const header = `# Changelog: ${fromVersion} → ${toVersion}\n\n`;
-    
+
     let inRelevantSection = false;
     let foundAnyRelevant = false;
-    
+
     for (const line of lines) {
       // Match version headers (## 1.2.3, # 1.2.3, ## v1.2.3, etc.)
       const versionMatch = line.match(/^#+ ?\[?v?(\d+\.\d+\.\d+[^\]\s]*)\]?/);
-      
+
       if (versionMatch) {
         const version = versionMatch[1];
         const cleanFrom = semver.clean(fromVersion);
         const cleanTo = semver.clean(toVersion);
-        
+
         if (cleanFrom && cleanTo && semver.valid(semver.coerce(version))) {
           const semVersion = semver.coerce(version)!.version;
-          
+
           // Include versions greater than current, up to and including latest
           if (semver.gt(semVersion, cleanFrom) && semver.lte(semVersion, cleanTo)) {
             inRelevantSection = true;
@@ -195,11 +233,11 @@ export class PubDevClient {
         relevantLines.push(line);
       }
     }
-    
+
     if (foundAnyRelevant) {
       return header + relevantLines.join('\n').trim();
     }
-    
+
     // Fallback: return first 100 lines of changelog
     return header + lines.slice(0, 100).join('\n');
   }
