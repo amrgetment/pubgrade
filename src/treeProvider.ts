@@ -1,6 +1,10 @@
 import * as vscode from 'vscode';
 import { PackageInfo, PubspecGroup } from './types';
 
+function getHideUpToDatePackagesSetting(): boolean {
+  return vscode.workspace.getConfiguration('pubgrade').get<boolean>('hideUpToDatePackages', false);
+}
+
 export class PubspecTreeItem extends vscode.TreeItem {
   constructor(
     public readonly group: PubspecGroup,
@@ -69,7 +73,16 @@ export class PackageTreeItem extends vscode.TreeItem {
   }
 }
 
-export type PubgradeTreeItem = PubspecTreeItem | PackageTreeItem;
+export class PlaceholderTreeItem extends vscode.TreeItem {
+  constructor(label: string) {
+    super(label, vscode.TreeItemCollapsibleState.None);
+    this.iconPath = new vscode.ThemeIcon('circle-outline', new vscode.ThemeColor('descriptionForeground'));
+    this.contextValue = 'placeholder';
+    this.tooltip = label;
+  }
+}
+
+export type PubgradeTreeItem = PubspecTreeItem | PackageTreeItem | PlaceholderTreeItem;
 
 export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<PubgradeTreeItem | undefined | null | void>();
@@ -111,6 +124,8 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
   }
 
   getChildren(element?: PubgradeTreeItem): Thenable<PubgradeTreeItem[]> {
+    const hideUpToDate = getHideUpToDatePackagesSetting();
+
     if (!element) {
       if (this.groups) {
         const sortedGroups = [...this.groups].sort((a, b) => {
@@ -123,7 +138,10 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
         });
 
         return Promise.resolve(
-          sortedGroups.map(g => new PubspecTreeItem(g, vscode.TreeItemCollapsibleState.Collapsed))
+          sortedGroups.map(g => new PubspecTreeItem(
+            g,
+            hideUpToDate ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed
+          ))
         );
       }
 
@@ -137,7 +155,11 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
         return 2; // up-to-date items last
       };
 
-      const sorted = [...this.packages].sort((a, b) => {
+      const visiblePackages = hideUpToDate
+        ? this.packages.filter(p => p.isOutdated)
+        : this.packages;
+
+      const sorted = [...visiblePackages].sort((a, b) => {
         const diff = priority(a) - priority(b);
         if (diff !== 0) {
           return diff;
@@ -153,6 +175,15 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
     if (element instanceof PubspecTreeItem) {
       const group = this.groupByPath.get(element.group.pubspec.pubspecPath);
       const packages = group?.packages ?? [];
+      const visiblePackages = hideUpToDate
+        ? packages.filter(p => p.isOutdated)
+        : packages;
+
+      if (hideUpToDate && visiblePackages.length === 0) {
+        return Promise.resolve([
+          new PlaceholderTreeItem('No packages with updates in this pubspec')
+        ]);
+      }
 
       const priority = (pkg: PackageInfo): number => {
         if (pkg.isOutdated && !pkg.isIgnored) {
@@ -164,7 +195,7 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
         return 2;
       };
 
-      const sorted = [...packages].sort((a, b) => {
+      const sorted = [...visiblePackages].sort((a, b) => {
         const diff = priority(a) - priority(b);
         if (diff !== 0) {
           return diff;

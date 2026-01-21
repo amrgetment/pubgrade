@@ -31,6 +31,17 @@ If you like this package, consider checking [UserOrient](https://userorient.com)
 5. **Click a package** to view changelog
 6. **Click "Update to X.X.X"** button to update
 
+### Hide packages that are already up to date
+
+If you only want to see packages that actually have an update available, enable:
+
+- Setting: `pubgrade.hideUpToDatePackages` (default: `false`)
+
+Notes:
+
+- In monorepo/grouped mode, groups expand by default when this is enabled.
+- If a pubspec group has no packages with updates, Pubgrade shows a small placeholder row.
+
 ## Monorepos / multiple pubspec.yaml files
 
 By default, Pubgrade reads only the **workspace root** `pubspec.yaml`.
@@ -54,6 +65,20 @@ If you have generated or internal packages you don’t want to see, you can hide
 - Or use **Manage Ignored Pubspecs** in the view toolbar
 
 This stores the relative pubspec paths in the workspace setting `pubgrade.ignoredPubspecs`.
+
+## Packaging (vsce)
+
+To build and create a `.vsix` package for local install or marketplace publishing:
+
+1. Compile:
+
+	`npm run compile`
+
+2. Package:
+
+	`npx vsce package`
+
+If you have `vsce` installed globally, you can also run `vsce package`.
 
 ## License
 

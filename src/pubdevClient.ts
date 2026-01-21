@@ -5,6 +5,82 @@ import { UpdateType } from './types';
 export class PubDevClient {
   private static BASE_URL = 'https://pub.dev/api/packages';
 
+  /**
+   * Compare two pub (Dart) versions.
+   *
+   * pub's version ordering considers build metadata after '+' as part of ordering
+   * (unlike SemVer 2.0.0 precedence rules where build is ignored).
+   */
+  private static comparePubVersions(aRaw: string, bRaw: string): number {
+    const aNorm = this.normalizeVersion(aRaw);
+    const bNorm = this.normalizeVersion(bRaw);
+
+    if (!aNorm || !bNorm) {
+      // Best effort: fall back to semver's comparison if possible.
+      if (aNorm && !bNorm) return 1;
+      if (!aNorm && bNorm) return -1;
+      return 0;
+    }
+
+    const a = semver.parse(aNorm);
+    const b = semver.parse(bNorm);
+    if (!a || !b) {
+      return 0;
+    }
+
+    // Compare main + prerelease (semver ignores build metadata already).
+    const core = a.compare(b);
+    if (core !== 0) {
+      return core;
+    }
+
+    // Compare build metadata (pub-specific behavior).
+    const ab = a.build ?? [];
+    const bb = b.build ?? [];
+
+    if (ab.length === 0 && bb.length === 0) return 0;
+    if (ab.length === 0) return -1;
+    if (bb.length === 0) return 1;
+
+    const len = Math.min(ab.length, bb.length);
+    for (let i = 0; i < len; i++) {
+      const diff = this.compareBuildIdentifier(String(ab[i]), String(bb[i]));
+      if (diff !== 0) return diff;
+    }
+
+    return ab.length - bb.length;
+  }
+
+  private static compareBuildIdentifier(a: string, b: string): number {
+    const isNumA = /^\d+$/.test(a);
+    const isNumB = /^\d+$/.test(b);
+
+    if (isNumA && isNumB) {
+      const na = Number(a);
+      const nb = Number(b);
+      if (na === nb) return 0;
+      return na < nb ? -1 : 1;
+    }
+
+    if (isNumA !== isNumB) {
+      // Follow the prerelease identifier convention: numeric identifiers sort before non-numeric.
+      return isNumA ? -1 : 1;
+    }
+
+    return a.localeCompare(b);
+  }
+
+  private static normalizeVersion(raw: string): string | null {
+    const cleaned = semver.clean(raw, { loose: true });
+    if (cleaned && semver.valid(cleaned)) {
+      return cleaned;
+    }
+    if (semver.valid(raw)) {
+      return raw;
+    }
+    return null;
+  }
+
   // Cache latest versions to reduce network calls (especially in monorepos).
   // TTL is intentionally short to keep results fresh.
   private static latestVersionCache = new Map<string, { value: string | null; expiresAt: number }>();
@@ -243,26 +319,22 @@ export class PubDevClient {
   }
 
   static isOutdated(currentVersion: string, latestVersion: string): boolean {
-    const cleanCurrent = semver.clean(currentVersion);
-    const cleanLatest = semver.clean(latestVersion);
-
-    if (!cleanCurrent || !cleanLatest) return false;
-
-    return semver.gt(cleanLatest, cleanCurrent);
+    const diff = this.comparePubVersions(latestVersion, currentVersion);
+    return diff > 0;
   }
 
   static getUpdateType(currentVersion: string, latestVersion: string): UpdateType {
-    const cleanCurrent = semver.clean(currentVersion);
-    const cleanLatest = semver.clean(latestVersion);
+    const cleanCurrent = this.normalizeVersion(currentVersion);
+    const cleanLatest = this.normalizeVersion(latestVersion);
 
     if (!cleanCurrent || !cleanLatest) return 'none';
 
-    // Check if versions are the same
-    if (semver.eq(cleanLatest, cleanCurrent)) {
+    // Check if versions are the same (including build metadata)
+    if (this.comparePubVersions(cleanLatest, cleanCurrent) === 0) {
       return 'none';
     }
 
-    // Parse versions
+    // Parse versions (core comparison ignores build metadata)
     const current = semver.parse(cleanCurrent);
     const latest = semver.parse(cleanLatest);
 
@@ -283,7 +355,8 @@ export class PubDevClient {
       return 'patch';
     }
 
-    return 'none';
+    // If core versions match but build or prerelease differs, treat as patch-level update.
+    return 'patch';
   }
 }
 

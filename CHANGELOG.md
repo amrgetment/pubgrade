@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.1 - Hide up-to-date + build version updates
+
+- New setting: `pubgrade.hideUpToDatePackages` to hide packages that are already up to date
+- When hiding up-to-date packages in monorepo/grouped mode, pubspec groups expand by default
+- Added placeholders for pubspec groups that have no packages with updates
+- Version comparison now treats Dart/pub build numbers as updatable (e.g. `1.0.0+2` > `1.0.0+1`)
+
 ## 1.7.0 - Monorepo Pubspec Scanning
 
 - Monorepo support (opt-in): scan all `pubspec.yaml` files in the workspace via `pubgrade.scanAllPubspecs` (default: false)

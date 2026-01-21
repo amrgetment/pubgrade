@@ -32,6 +32,19 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('pubgrade.toggleHideUpToDatePackages', async () => {
+      const config = vscode.workspace.getConfiguration('pubgrade');
+      const current = config.get<boolean>('hideUpToDatePackages', false);
+      await config.update('hideUpToDatePackages', !current, vscode.ConfigurationTarget.Workspace);
+      vscode.window.setStatusBarMessage(
+        !current ? 'Pubgrade: hiding up-to-date packages' : 'Pubgrade: showing all packages',
+        2000
+      );
+      // refreshPackages() is triggered by onDidChangeConfiguration.
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('pubgrade.ignorePubspec', async (item) => {
       const relativePath: string | undefined = item?.group?.pubspec?.relativePath;
       if (relativePath) {
@@ -116,6 +129,20 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Auto-refresh on activation
   refreshPackages();
+
+  // Auto-refresh when settings change
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (
+        e.affectsConfiguration('pubgrade.hideUpToDatePackages') ||
+        e.affectsConfiguration('pubgrade.scanAllPubspecs') ||
+        e.affectsConfiguration('pubgrade.ignoredPubspecs') ||
+        e.affectsConfiguration('pubgrade.ignoredPackages')
+      ) {
+        refreshPackages();
+      }
+    })
+  );
 }
 
 function getScanAllPubspecsSetting(): boolean {

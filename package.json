@@ -2,7 +2,7 @@
   "name": "flutter-pubgrade",
   "displayName": "Pubgrade",
   "description": "Manage packages: check updates, view changelogs, update with one click",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "publisher": "KamranBekirov",
   "icon": "resources/icon.png",
   "author": {
@@ -56,6 +56,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "pubgrade.toggleHideUpToDatePackages",
+        "title": "Toggle Hide Up-to-date Packages",
+        "icon": "$(filter)"
+      },
+      {
         "command": "pubgrade.ignorePubspec",
         "title": "Ignore Pubspec",
         "icon": "$(circle-slash)"
@@ -95,6 +100,11 @@
           "command": "pubgrade.refresh",
           "when": "view == pubgradePackages",
           "group": "navigation"
+        },
+        {
+          "command": "pubgrade.toggleHideUpToDatePackages",
+          "when": "view == pubgradePackages",
+          "group": "navigation@0"
         },
         {
           "command": "pubgrade.ignorePubspec",
@@ -138,6 +148,11 @@
     "configuration": {
       "title": "Pubgrade",
       "properties": {
+        "pubgrade.hideUpToDatePackages": {
+          "type": "boolean",
+          "default": false,
+          "description": "Hide packages that are already up to date (only show packages with updates, plus ignored updates)."
+        },
         "pubgrade.scanAllPubspecs": {
           "type": "boolean",
           "default": false,
