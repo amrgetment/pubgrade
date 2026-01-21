@@ -136,6 +136,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (
         e.affectsConfiguration('pubgrade.hideUpToDatePackages') ||
         e.affectsConfiguration('pubgrade.scanAllPubspecs') ||
+        e.affectsConfiguration('pubgrade.treatAnyAsUpToDate') ||
         e.affectsConfiguration('pubgrade.ignoredPubspecs') ||
         e.affectsConfiguration('pubgrade.ignoredPackages')
       ) {
@@ -153,6 +154,11 @@ function getScanAllPubspecsSetting(): boolean {
 function getIgnoredPubspecs(): string[] {
   const config = vscode.workspace.getConfiguration('pubgrade');
   return config.get<string[]>('ignoredPubspecs', []);
+}
+
+function getTreatAnyAsUpToDateSetting(): boolean {
+  const config = vscode.workspace.getConfiguration('pubgrade');
+  return config.get<boolean>('treatAnyAsUpToDate', true);
 }
 
 async function setIgnoredPubspecs(relativePubspecPaths: string[]): Promise<void> {
@@ -202,8 +208,16 @@ async function fetchPackageInfo(
       return null;
     }
 
-    const isOutdated = PubDevClient.isOutdated(cleanVersion, latestVersion);
-    const updateType = PubDevClient.getUpdateType(cleanVersion, latestVersion);
+    const treatAnyAsUpToDate = getTreatAnyAsUpToDateSetting();
+    const isAnyConstraint = cleanVersion.trim().toLowerCase() === 'any';
+
+    const isOutdated = (treatAnyAsUpToDate && isAnyConstraint)
+      ? false
+      : PubDevClient.isOutdated(cleanVersion, latestVersion);
+
+    const updateType = (treatAnyAsUpToDate && isAnyConstraint)
+      ? 'none'
+      : PubDevClient.getUpdateType(cleanVersion, latestVersion);
     const ignoredEntry = ignoredPackages.find(pkg => pkg.name === dep.name);
     const isIgnored = Boolean(ignoredEntry);
     const ignoreReason = ignoredEntry?.reason;

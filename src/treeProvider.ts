@@ -60,7 +60,11 @@ export class PackageTreeItem extends vscode.TreeItem {
     } else {
       this.description = packageInfo.currentVersion;
       this.iconPath = new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'));
-      this.tooltip = 'Up to date';
+      if (packageInfo.currentVersion.trim().toLowerCase() === 'any') {
+        this.tooltip = "Version constraint is 'any' (not tracked for updates)";
+      } else {
+        this.tooltip = 'Up to date';
+      }
       this.contextValue = 'upToDatePackage';
     }
 

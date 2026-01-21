@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.2 - Treat `any` constraints as up-to-date
+
+- New setting: `pubgrade.treatAnyAsUpToDate` (default: `true`)
+- Dependencies declared as `any` (e.g. `intl: any`) are treated as up to date by default, so they don’t appear as always-outdated
+- Improved tooltip messaging for `any` constraints
+- Manifest/schema cleanup (adds missing icons for contributed view/commands)
+
 ## 1.7.1 - Hide up-to-date + build version updates
 
 - New setting: `pubgrade.hideUpToDatePackages` to hide packages that are already up to date

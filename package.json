@@ -2,7 +2,7 @@
   "name": "flutter-pubgrade",
   "displayName": "Pubgrade",
   "description": "Manage packages: check updates, view changelogs, update with one click",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "publisher": "KamranBekirov",
   "icon": "resources/icon.png",
   "author": {
@@ -45,7 +45,8 @@
       "flutter-pubgrade": [
         {
           "id": "pubgradePackages",
-          "name": "Packages"
+          "name": "Packages",
+          "icon": "resources/icon.svg"
         }
       ]
     },
@@ -67,11 +68,13 @@
       },
       {
         "command": "pubgrade.updatePackage",
-        "title": "Update Package"
+        "title": "Update Package",
+        "icon": "$(cloud-download)"
       },
       {
         "command": "pubgrade.showChangelog",
-        "title": "Show Changelog"
+        "title": "Show Changelog",
+        "icon": "$(book)"
       },
       {
         "command": "pubgrade.ignorePackage",
@@ -157,6 +160,11 @@
           "type": "boolean",
           "default": false,
           "description": "Scan all pubspec.yaml files in the workspace (monorepo). When disabled, only the workspace root pubspec.yaml is used."
+        },
+        "pubgrade.treatAnyAsUpToDate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat dependencies declared with version constraint 'any' (e.g., 'intl: any') as up to date. This avoids showing them as always-outdated and prevents accidental updates from 'any' to a pinned version."
         },
         "pubgrade.ignoredPubspecs": {
           "type": "array",

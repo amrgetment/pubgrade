@@ -31,6 +31,19 @@ If you like this package, consider checking [UserOrient](https://userorient.com)
 5. **Click a package** to view changelog
 6. **Click "Update to X.X.X"** button to update
 
+## Ignoring packages (and `any` constraints)
+
+If you don’t want Pubgrade to suggest updates for a dependency, you can ignore it:
+
+- Right-click a package → **Ignore Package**
+- Or edit workspace settings: `pubgrade.ignoredPackages`
+
+### Packages declared as `any`
+
+Dependencies declared with `any` (example: `intl: any`) are treated as **up to date by default**, because `any` isn’t a pinned version and would otherwise look “always outdated”.
+
+- Setting: `pubgrade.treatAnyAsUpToDate` (default: `true`)
+
 ### Hide packages that are already up to date
 
 If you only want to see packages that actually have an update available, enable:
