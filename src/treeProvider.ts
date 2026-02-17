@@ -1,9 +1,15 @@
 import * as vscode from 'vscode';
-import { PackageInfo, PubspecGroup } from './types';
+import { DependencySection, PackageInfo, PubspecGroup } from './types';
 
 function getHideUpToDatePackagesSetting(): boolean {
   return vscode.workspace.getConfiguration('pubgrade').get<boolean>('hideUpToDatePackages', true);
 }
+
+const SECTION_ORDER: DependencySection[] = [
+  'dependencies',
+  'dev_dependencies',
+  'dependency_overrides'
+];
 
 export class PubspecTreeItem extends vscode.TreeItem {
   constructor(
@@ -21,13 +27,31 @@ export class PubspecTreeItem extends vscode.TreeItem {
   }
 }
 
+export class DependencySectionTreeItem extends vscode.TreeItem {
+  constructor(
+    public readonly group: PubspecGroup,
+    public readonly section: DependencySection,
+    public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+    count: number
+  ) {
+    super(section, collapsibleState);
+    this.description = `${count} package${count === 1 ? '' : 's'}`;
+    this.tooltip = section;
+    this.iconPath = new vscode.ThemeIcon('symbol-namespace');
+    this.contextValue = 'dependencySectionGroup';
+  }
+}
+
 export class PackageTreeItem extends vscode.TreeItem {
   constructor(
     public readonly packageInfo: PackageInfo,
-    public readonly collapsibleState: vscode.TreeItemCollapsibleState
+    public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+    showSectionLabel: boolean = true
   ) {
     super(packageInfo.name, collapsibleState);
-    const sectionLabel = PackageTreeItem.getSectionLabel(packageInfo.sourceDependencySection);
+    const sectionLabel = showSectionLabel
+      ? PackageTreeItem.getSectionLabel(packageInfo.sourceDependencySection)
+      : undefined;
     const sectionPrefix = sectionLabel ? `${sectionLabel} ` : '';
     const sectionTooltipLine = sectionLabel ? `\nSection: ${sectionLabel}` : '';
 
@@ -97,7 +121,11 @@ export class PlaceholderTreeItem extends vscode.TreeItem {
   }
 }
 
-export type PubgradeTreeItem = PubspecTreeItem | PackageTreeItem | PlaceholderTreeItem;
+export type PubgradeTreeItem =
+  | PubspecTreeItem
+  | DependencySectionTreeItem
+  | PackageTreeItem
+  | PlaceholderTreeItem;
 
 export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<PubgradeTreeItem | undefined | null | void>();
@@ -152,6 +180,35 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
     return packages.filter(p => p.isOutdated && p.isIgnored);
   }
 
+  private getSectionPackages(
+    packages: PackageInfo[],
+    section: DependencySection
+  ): PackageInfo[] {
+    return packages.filter(pkg => pkg.sourceDependencySection === section);
+  }
+
+  private getSectionItems(
+    group: PubspecGroup,
+    visiblePackages: PackageInfo[],
+    hideUpToDate: boolean
+  ): DependencySectionTreeItem[] {
+    return SECTION_ORDER
+      .map((section) => {
+        const sectionPackages = this.getSectionPackages(visiblePackages, section);
+        if (sectionPackages.length === 0) {
+          return null;
+        }
+
+        return new DependencySectionTreeItem(
+          group,
+          section,
+          hideUpToDate ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed,
+          sectionPackages.length
+        );
+      })
+      .filter((item): item is DependencySectionTreeItem => item !== null);
+  }
+
   getChildren(element?: PubgradeTreeItem): Thenable<PubgradeTreeItem[]> {
     const hideUpToDate = getHideUpToDatePackagesSetting();
 
@@ -201,7 +258,7 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
       });
 
       return Promise.resolve(
-        sorted.map(pkg => new PackageTreeItem(pkg, vscode.TreeItemCollapsibleState.None))
+        sorted.map(pkg => new PackageTreeItem(pkg, vscode.TreeItemCollapsibleState.None, true))
       );
     }
 
@@ -212,6 +269,14 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
       if (visiblePackages.length === 0) {
         return Promise.resolve([]);
       }
+      return Promise.resolve(this.getSectionItems(element.group, visiblePackages, hideUpToDate));
+    }
+
+    if (element instanceof DependencySectionTreeItem) {
+      const group = this.groupByPath.get(element.group.pubspec.pubspecPath);
+      const packages = group?.packages ?? [];
+      const visiblePackages = this.getVisiblePackages(packages, hideUpToDate);
+      const sectionPackages = this.getSectionPackages(visiblePackages, element.section);
 
       const priority = (pkg: PackageInfo): number => {
         if (pkg.isOutdated && !pkg.isIgnored) {
@@ -223,7 +288,7 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
         return 2;
       };
 
-      const sorted = [...visiblePackages].sort((a, b) => {
+      const sorted = [...sectionPackages].sort((a, b) => {
         const diff = priority(a) - priority(b);
         if (diff !== 0) {
           return diff;
@@ -232,7 +297,7 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
       });
 
       return Promise.resolve(
-        sorted.map(pkg => new PackageTreeItem(pkg, vscode.TreeItemCollapsibleState.None))
+        sorted.map(pkg => new PackageTreeItem(pkg, vscode.TreeItemCollapsibleState.None, false))
       );
     }
 

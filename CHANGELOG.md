@@ -9,6 +9,8 @@
 - Added an activation notice so users know this is now the default behavior
 - Added dependency section awareness (`dependencies`, `dev_dependencies`, `dependency_overrides`) in parsed package metadata
 - Fixed updater matching for packages like `patrol` so only dependency section entries are updated (`dependencies`, `dev_dependencies`, `dependency_overrides`), and top-level config blocks (for example `patrol:`) are not modified
+- In grouped pubspec view, dependencies are now nested under a section sub-level: `dependencies`, `dev_dependencies`, `dependency_overrides`
+- Section labels are shown on package rows in flat/root view, and omitted when already grouped under section nodes
 
 ## 1.7.2 - Treat `any` constraints as up-to-date
 
