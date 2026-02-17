@@ -2,6 +2,11 @@
 
 ## 1.7.3 - Default actionable-only filtering
 
+- `pubgrade.hideUpToDatePackages` now defaults to `true`
+- When enabled, Pubgrade hides up-to-date packages and prioritizes actionable updates
+- If a pubspec has no actionable updates, ignored updates are shown
+- Empty pubspec groups are no longer auto-expanded
+- Added an activation notice so users know this is now the default behavior
 - Added dependency section awareness (`dependencies`, `dev_dependencies`, `dependency_overrides`) in parsed package metadata
 - Fixed updater matching for packages like `patrol` so only dependency section entries are updated (`dependencies`, `dev_dependencies`, `dependency_overrides`), and top-level config blocks (for example `patrol:`) are not modified
 

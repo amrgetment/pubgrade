@@ -44,11 +44,12 @@ Dependencies declared with `any` (example: `intl: any`) are treated as **up to d
 
 - Setting: `pubgrade.treatAnyAsUpToDate` (default: `true`)
 
-### Hide packages that are already up to date
+### Focus on packages with updates
 
-If you only want to see packages that actually have an update available, enable:
+Pubgrade hides up-to-date packages by default, so you focus on updates first.
+If a pubspec has no actionable updates, Pubgrade shows ignored updates so they remain visible.
 
-- Setting: `pubgrade.hideUpToDatePackages` (default: `false`)
+- Setting: `pubgrade.hideUpToDatePackages` (default: `true`)
 
 Notes:
 
@@ -96,4 +97,3 @@ If you have `vsce` installed globally, you can also run `vsce package`.
 ## License
 
 [MIT](LICENSE)
-

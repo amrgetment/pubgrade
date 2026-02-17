@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { PackageInfo, PubspecGroup } from './types';
 
 function getHideUpToDatePackagesSetting(): boolean {
-  return vscode.workspace.getConfiguration('pubgrade').get<boolean>('hideUpToDatePackages', false);
+  return vscode.workspace.getConfiguration('pubgrade').get<boolean>('hideUpToDatePackages', true);
 }
 
 export class PubspecTreeItem extends vscode.TreeItem {
@@ -27,43 +27,46 @@ export class PackageTreeItem extends vscode.TreeItem {
     public readonly collapsibleState: vscode.TreeItemCollapsibleState
   ) {
     super(packageInfo.name, collapsibleState);
+    const sectionLabel = PackageTreeItem.getSectionLabel(packageInfo.sourceDependencySection);
+    const sectionPrefix = sectionLabel ? `${sectionLabel} ` : '';
+    const sectionTooltipLine = sectionLabel ? `\nSection: ${sectionLabel}` : '';
 
     if (packageInfo.isIgnored) {
-      const baseDescription = `${packageInfo.currentVersion} (ignored)`;
+      const baseDescription = `${sectionPrefix}${packageInfo.currentVersion} (ignored)`;
       this.description = packageInfo.ignoreReason ? `${baseDescription}\n${packageInfo.ignoreReason}` : baseDescription;
       this.iconPath = new vscode.ThemeIcon('eye-closed', new vscode.ThemeColor('descriptionForeground'));
       const reasonLine = packageInfo.ignoreReason ? `\nReason: ${packageInfo.ignoreReason}` : '';
-      this.tooltip = `Ignored - Updates will not be shown${reasonLine}`;
+      this.tooltip = `Ignored - Updates will not be shown${sectionTooltipLine}${reasonLine}`;
       this.contextValue = 'ignoredPackage';
     } else if (packageInfo.isOutdated) {
-      this.description = `${packageInfo.currentVersion} → ${packageInfo.latestVersion}`;
+      this.description = `${sectionPrefix}${packageInfo.currentVersion} → ${packageInfo.latestVersion}`;
 
       // Set icon and tooltip based on update type
       switch (packageInfo.updateType) {
         case 'major':
           this.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
-          this.tooltip = `Major update available: ${packageInfo.latestVersion} (Breaking changes possible)`;
+          this.tooltip = `Major update available: ${packageInfo.latestVersion} (Breaking changes possible)${sectionTooltipLine}`;
           break;
         case 'minor':
           this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'));
-          this.tooltip = `Minor update available: ${packageInfo.latestVersion} (New features)`;
+          this.tooltip = `Minor update available: ${packageInfo.latestVersion} (New features)${sectionTooltipLine}`;
           break;
         case 'patch':
           this.iconPath = new vscode.ThemeIcon('info', new vscode.ThemeColor('editorInfo.foreground'));
-          this.tooltip = `Patch update available: ${packageInfo.latestVersion} (Bug fixes)`;
+          this.tooltip = `Patch update available: ${packageInfo.latestVersion} (Bug fixes)${sectionTooltipLine}`;
           break;
         default:
           this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'));
-          this.tooltip = `Update available: ${packageInfo.latestVersion}`;
+          this.tooltip = `Update available: ${packageInfo.latestVersion}${sectionTooltipLine}`;
       }
       this.contextValue = 'outdatedPackage';
     } else {
-      this.description = packageInfo.currentVersion;
+      this.description = `${sectionPrefix}${packageInfo.currentVersion}`;
       this.iconPath = new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'));
       if (packageInfo.currentVersion.trim().toLowerCase() === 'any') {
-        this.tooltip = "Version constraint is 'any' (not tracked for updates)";
+        this.tooltip = `Version constraint is 'any' (not tracked for updates)${sectionTooltipLine}`;
       } else {
-        this.tooltip = 'Up to date';
+        this.tooltip = `Up to date${sectionTooltipLine}`;
       }
       this.contextValue = 'upToDatePackage';
     }
@@ -74,6 +77,14 @@ export class PackageTreeItem extends vscode.TreeItem {
       title: 'Package Actions',
       arguments: [this]
     };
+  }
+
+  private static getSectionLabel(
+    section: PackageInfo['sourceDependencySection'] | string | undefined
+  ): string | undefined {
+    if (!section) return undefined;
+    const value = section.trim();
+    return value.length > 0 ? value : undefined;
   }
 }
 
@@ -127,6 +138,20 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
     return element;
   }
 
+  private getVisiblePackages(packages: PackageInfo[], hideUpToDate: boolean): PackageInfo[] {
+    if (!hideUpToDate) {
+      return packages;
+    }
+
+    const actionable = packages.filter(p => p.isOutdated && !p.isIgnored);
+    if (actionable.length > 0) {
+      return actionable;
+    }
+
+    // If there are no actionable updates, show ignored outdated packages instead.
+    return packages.filter(p => p.isOutdated && p.isIgnored);
+  }
+
   getChildren(element?: PubgradeTreeItem): Thenable<PubgradeTreeItem[]> {
     const hideUpToDate = getHideUpToDatePackagesSetting();
 
@@ -142,10 +167,16 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
         });
 
         return Promise.resolve(
-          sortedGroups.map(g => new PubspecTreeItem(
-            g,
-            hideUpToDate ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed
-          ))
+          sortedGroups.map(g => {
+            const visiblePackages = this.getVisiblePackages(g.packages, hideUpToDate);
+            const collapsibleState = visiblePackages.length === 0
+              ? vscode.TreeItemCollapsibleState.None
+              : hideUpToDate
+                ? vscode.TreeItemCollapsibleState.Expanded
+                : vscode.TreeItemCollapsibleState.Collapsed;
+
+            return new PubspecTreeItem(g, collapsibleState);
+          })
         );
       }
 
@@ -159,9 +190,7 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
         return 2; // up-to-date items last
       };
 
-      const visiblePackages = hideUpToDate
-        ? this.packages.filter(p => p.isOutdated)
-        : this.packages;
+      const visiblePackages = this.getVisiblePackages(this.packages, hideUpToDate);
 
       const sorted = [...visiblePackages].sort((a, b) => {
         const diff = priority(a) - priority(b);
@@ -179,14 +208,9 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
     if (element instanceof PubspecTreeItem) {
       const group = this.groupByPath.get(element.group.pubspec.pubspecPath);
       const packages = group?.packages ?? [];
-      const visiblePackages = hideUpToDate
-        ? packages.filter(p => p.isOutdated)
-        : packages;
-
-      if (hideUpToDate && visiblePackages.length === 0) {
-        return Promise.resolve([
-          new PlaceholderTreeItem('No packages with updates in this pubspec')
-        ]);
+      const visiblePackages = this.getVisiblePackages(packages, hideUpToDate);
+      if (visiblePackages.length === 0) {
+        return Promise.resolve([]);
       }
 
       const priority = (pkg: PackageInfo): number => {
@@ -215,4 +239,3 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
     return Promise.resolve([]);
   }
 }
-

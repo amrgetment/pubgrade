@@ -34,10 +34,12 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('pubgrade.toggleHideUpToDatePackages', async () => {
       const config = vscode.workspace.getConfiguration('pubgrade');
-      const current = config.get<boolean>('hideUpToDatePackages', false);
+      const current = config.get<boolean>('hideUpToDatePackages', true);
       await config.update('hideUpToDatePackages', !current, vscode.ConfigurationTarget.Workspace);
       vscode.window.setStatusBarMessage(
-        !current ? 'Pubgrade: hiding up-to-date packages' : 'Pubgrade: showing all packages',
+        !current
+          ? 'Pubgrade: focusing on available updates'
+          : 'Pubgrade: showing all packages',
         2000
       );
       // refreshPackages() is triggered by onDidChangeConfiguration.
@@ -128,6 +130,8 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  void maybeShowDefaultHideBehaviorMessage(context);
+
   // Auto-refresh on activation
   refreshPackages();
 
@@ -144,6 +148,35 @@ export function activate(context: vscode.ExtensionContext) {
         refreshPackages();
       }
     })
+  );
+}
+
+async function maybeShowDefaultHideBehaviorMessage(context: vscode.ExtensionContext): Promise<void> {
+  const config = vscode.workspace.getConfiguration('pubgrade');
+  const hideEnabled = config.get<boolean>('hideUpToDatePackages', true);
+  if (!hideEnabled) {
+    return;
+  }
+
+  const inspect = config.inspect<boolean>('hideUpToDatePackages');
+  const hasExplicitValue =
+    inspect?.globalValue !== undefined ||
+    inspect?.workspaceValue !== undefined ||
+    inspect?.workspaceFolderValue !== undefined;
+
+  if (hasExplicitValue) {
+    return;
+  }
+
+  const noticeKey = 'pubgrade.defaultHideBehaviorNoticeShown';
+  const wasShown = context.workspaceState.get<boolean>(noticeKey, false);
+  if (wasShown) {
+    return;
+  }
+
+  await context.workspaceState.update(noticeKey, true);
+  vscode.window.showInformationMessage(
+    'Pubgrade now hides up-to-date packages by default and focuses on updates. Use "Toggle Hide Up-to-date Packages" to show everything.'
   );
 }
 
