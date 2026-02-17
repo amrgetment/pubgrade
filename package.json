@@ -202,7 +202,8 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile"
+    "pretest": "npm run compile",
+    "test": "node --test \"out/**/*.test.js\""
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.5",

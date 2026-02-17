@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.3 - Default actionable-only filtering
+
+- Added dependency section awareness (`dependencies`, `dev_dependencies`, `dependency_overrides`) in parsed package metadata
+- Fixed updater matching for packages like `patrol` so only dependency section entries are updated (`dependencies`, `dev_dependencies`, `dependency_overrides`), and top-level config blocks (for example `patrol:`) are not modified
+
 ## 1.7.2 - Treat `any` constraints as up-to-date
 
 - New setting: `pubgrade.treatAnyAsUpToDate` (default: `true`)
@@ -70,4 +75,3 @@
 - One-click updates per version
 - Badge counter for outdated packages
 - Automatic sorting (outdated first)
-

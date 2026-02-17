@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
-import { PubspecDependency } from './types';
+import { DependencySection, PubspecDependency } from './types';
 
 export class PubspecParser {
   static parse(filePath: string): PubspecDependency[] {
@@ -14,27 +14,9 @@ export class PubspecParser {
     const pubspecName = typeof doc?.name === 'string' ? doc.name : undefined;
     const dependencies: PubspecDependency[] = [];
 
-    // Parse dependencies
-    if (doc?.dependencies) {
-      Object.keys(doc.dependencies).forEach((name) => {
-        if (name === 'flutter') return; // Skip flutter SDK
-        const version = doc.dependencies[name];
-        if (typeof version === 'string') {
-          dependencies.push({ name, version, isDev: false });
-        }
-      });
-    }
-
-    // Parse dev_dependencies
-    if (doc?.dev_dependencies) {
-      Object.keys(doc.dev_dependencies).forEach((name) => {
-        if (name === 'flutter_test') return; // Skip flutter test SDK
-        const version = doc.dev_dependencies[name];
-        if (typeof version === 'string') {
-          dependencies.push({ name, version, isDev: true });
-        }
-      });
-    }
+    this.parseSection(doc?.dependencies, 'dependencies', dependencies, ['flutter']);
+    this.parseSection(doc?.dev_dependencies, 'dev_dependencies', dependencies, ['flutter_test']);
+    this.parseSection(doc?.dependency_overrides, 'dependency_overrides', dependencies);
 
     return { pubspecName, dependencies };
   }
@@ -43,5 +25,21 @@ export class PubspecParser {
     // Remove version constraints like ^, >=, etc.
     return version.replace(/^[\^>=<]+/, '').trim();
   }
-}
 
+  private static parseSection(
+    section: any,
+    sectionName: DependencySection,
+    output: PubspecDependency[],
+    skipPackages: string[] = []
+  ): void {
+    if (!section) return;
+
+    Object.keys(section).forEach((name) => {
+      if (skipPackages.includes(name)) return;
+      const version = section[name];
+      if (typeof version === 'string') {
+        output.push({ name, version, section: sectionName });
+      }
+    });
+  }
+}

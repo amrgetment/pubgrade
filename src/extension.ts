@@ -65,7 +65,8 @@ export function activate(context: vscode.ExtensionContext) {
           const success = await Updater.updatePackage(
             pubspecPath,
             item.packageInfo.name,
-            item.packageInfo.latestVersion
+            item.packageInfo.latestVersion,
+            item.packageInfo.sourceDependencySection
           );
           if (success) {
             setTimeout(() => refreshPackages(), 1000);
@@ -226,6 +227,7 @@ async function fetchPackageInfo(
       name: dep.name,
       currentVersion: cleanVersion,
       latestVersion: latestVersion,
+      sourceDependencySection: dep.section,
       isOutdated: isOutdated,
       updateType: updateType,
       sourcePubspecPath: source.pubspecPath,
@@ -454,7 +456,12 @@ async function showChangelogAsDocument(packageInfo: PackageInfo) {
       async (packageName: string, version: string) => {
         const pubspecPath = packageInfo.sourcePubspecPath || await findRootPubspecPath();
         if (pubspecPath) {
-          const success = await Updater.updatePackage(pubspecPath, packageName, version);
+          const success = await Updater.updatePackage(
+            pubspecPath,
+            packageName,
+            version,
+            packageInfo.sourceDependencySection
+          );
           if (success) {
             setTimeout(() => refreshPackages(), 1000);
           }

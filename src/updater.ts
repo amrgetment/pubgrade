@@ -1,18 +1,24 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { updateDependencyVersionInSections } from './pubspecDependencyUpdater';
+import { DependencySection } from './types';
 
 export class Updater {
-  static async updatePackage(pubspecPath: string, packageName: string, newVersion: string): Promise<boolean> {
+  static async updatePackage(
+    pubspecPath: string,
+    packageName: string,
+    newVersion: string,
+    section?: DependencySection
+  ): Promise<boolean> {
     try {
       const content = fs.readFileSync(pubspecPath, 'utf8');
-
-      // Match the package name and its version (capture prefix like ^)
-      const regex = new RegExp(`(\\s+${packageName}:\\s*)(\\^?)([^\\n]+)`, 'g');
-      const updatedContent = content.replace(regex, (match, prefix, caret) => {
-        // Preserve caret if it was there, otherwise no caret
-        return `${prefix}${caret}${newVersion}`;
-      });
+      const updatedContent = updateDependencyVersionInSections(
+        content,
+        packageName,
+        newVersion,
+        section ? [section] : undefined
+      );
 
       if (content === updatedContent) {
         vscode.window.showWarningMessage(`Could not update ${packageName}`);
@@ -35,4 +41,3 @@ export class Updater {
     }
   }
 }
-
