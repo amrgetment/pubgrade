@@ -80,25 +80,25 @@ export class PackageTreeItem extends vscode.TreeItem {
     } else if (packageInfo.isOutdated) {
       const updateEmoji = PackageTreeItem.getUpdateEmoji(packageInfo.updateType);
       const updateEmojiPart = updateEmoji ? `${updateEmoji} ` : '';
-      this.description = `${sectionPrefix}⚠️ ${updateEmojiPart}${cleanedCurrentVersion} → ${packageInfo.latestVersion}${sourceLine}`;
+      this.description = `${sectionPrefix}${updateEmojiPart}${cleanedCurrentVersion} → ${packageInfo.latestVersion}${sourceLine}`;
 
       // Set icon and tooltip based on update type
       switch (packageInfo.updateType) {
         case 'major':
           this.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
-          this.tooltip = `⚠️ outdated package\n🔥 major update${sectionTooltipLine}${sourceTooltipLine}`;
+          this.tooltip = `🔥 major update${sectionTooltipLine}${sourceTooltipLine}`;
           break;
         case 'minor':
           this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'));
-          this.tooltip = `⚠️ outdated package\n🌱 minor update${sectionTooltipLine}${sourceTooltipLine}`;
+          this.tooltip = `🌱 minor update${sectionTooltipLine}${sourceTooltipLine}`;
           break;
         case 'patch':
           this.iconPath = new vscode.ThemeIcon('info', new vscode.ThemeColor('editorInfo.foreground'));
-          this.tooltip = `⚠️ outdated package\n🩹 patch update${sectionTooltipLine}${sourceTooltipLine}`;
+          this.tooltip = `🩹 patch update${sectionTooltipLine}${sourceTooltipLine}`;
           break;
         default:
           this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'));
-          this.tooltip = `⚠️ outdated package${sectionTooltipLine}${sourceTooltipLine}`;
+          this.tooltip = `update available${sectionTooltipLine}${sourceTooltipLine}`;
       }
       this.contextValue = 'outdatedPackage';
     } else {
@@ -133,7 +133,7 @@ export class PackageTreeItem extends vscode.TreeItem {
   ): { emoji: string; label: string } | undefined {
     switch (sourceType) {
       case 'hosted':
-        return { emoji: '🌐', label: 'from hosted pub.dev' };
+        return undefined;
       case 'path':
         return { emoji: '🧱', label: 'local/path dependency' };
       case 'git':

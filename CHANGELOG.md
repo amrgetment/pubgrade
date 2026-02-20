@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.5 - Cleaner update indicators
+
+- Removed hosted source indicator (`🌐`) from package rows/tooltips to reduce visual noise
+- Outdated package rows now show only the update-type emoji (`🔥` / `🌱` / `🩹`) with version transition text
+- Simplified outdated package tooltips to focus on update type
+
 ## 1.7.4 - Emoji-rich dependency statuses + source awareness
 
 - Added emoji-first section labels:
