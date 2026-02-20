@@ -63,6 +63,7 @@ By default, Pubgrade reads only the **workspace root** `pubspec.yaml`.
 If you work in a monorepo (melos, `packages/*`, `apps/*`, etc.) you can enable scanning **all** pubspecs in the workspace:
 
 - Setting: `pubgrade.scanAllPubspecs` (default: `false`)
+- Optional speed tuning: `pubgrade.maxConcurrentRequests` (default: `8`, range: `1`-`20`)
 
 When enabled:
 

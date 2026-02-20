@@ -1,12 +1,15 @@
 export type UpdateType = 'major' | 'minor' | 'patch' | 'none';
 export type DependencySection = 'dependencies' | 'dev_dependencies' | 'dependency_overrides';
+export type DependencySourceType = 'hosted' | 'path' | 'git' | 'unknown';
 
 export interface PackageInfo {
   name: string;
   currentVersion: string;
   latestVersion: string;
   sourceDependencySection: DependencySection;
+  sourceDependencyType: DependencySourceType;
   isOutdated: boolean;
+  fetchFailed?: boolean;
   updateType: UpdateType;
   /** Absolute path to the pubspec.yaml that declared this dependency. */
   sourcePubspecPath: string;
@@ -24,6 +27,7 @@ export interface PubspecDependency {
   name: string;
   version: string;
   section: DependencySection;
+  sourceType: DependencySourceType;
 }
 
 export interface PubspecInfo {

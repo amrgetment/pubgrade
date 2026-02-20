@@ -120,6 +120,10 @@ export function activate(context: vscode.ExtensionContext) {
       if (!item?.packageInfo) {
         return;
       }
+      if (item.packageInfo.fetchFailed) {
+        vscode.window.showErrorMessage(`Failed to check latest version for ${item.packageInfo.name}`);
+        return;
+      }
       if (!item.packageInfo.isOutdated) {
         vscode.window.showInformationMessage(`${item.packageInfo.name} is up to date (${item.packageInfo.currentVersion})`);
         return;
@@ -142,6 +146,7 @@ export function activate(context: vscode.ExtensionContext) {
         e.affectsConfiguration('pubgrade.hideUpToDatePackages') ||
         e.affectsConfiguration('pubgrade.scanAllPubspecs') ||
         e.affectsConfiguration('pubgrade.treatAnyAsUpToDate') ||
+        e.affectsConfiguration('pubgrade.maxConcurrentRequests') ||
         e.affectsConfiguration('pubgrade.ignoredPubspecs') ||
         e.affectsConfiguration('pubgrade.ignoredPackages')
       ) {
@@ -195,6 +200,15 @@ function getTreatAnyAsUpToDateSetting(): boolean {
   return config.get<boolean>('treatAnyAsUpToDate', true);
 }
 
+function getMaxConcurrentRequestsSetting(): number {
+  const config = vscode.workspace.getConfiguration('pubgrade');
+  const raw = config.get<number>('maxConcurrentRequests', 8);
+  if (!Number.isFinite(raw)) {
+    return 8;
+  }
+  return Math.min(20, Math.max(1, Math.floor(raw)));
+}
+
 async function setIgnoredPubspecs(relativePubspecPaths: string[]): Promise<void> {
   const config = vscode.workspace.getConfiguration('pubgrade');
   await config.update('ignoredPubspecs', relativePubspecPaths, vscode.ConfigurationTarget.Workspace);
@@ -235,11 +249,44 @@ async function fetchPackageInfo(
   source: { pubspecPath: string; pubspecName?: string; relativePath?: string }
 ): Promise<PackageInfo | null> {
   try {
+    const ignoredEntry = ignoredPackages.find(pkg => pkg.name === dep.name);
+    const isIgnored = Boolean(ignoredEntry);
+    const ignoreReason = ignoredEntry?.reason;
+
     const cleanVersion = PubspecParser.cleanVersion(dep.version);
+    const basePackageInfo = {
+      name: dep.name,
+      currentVersion: cleanVersion,
+      sourceDependencySection: dep.section,
+      sourceDependencyType: dep.sourceType,
+      sourcePubspecPath: source.pubspecPath,
+      sourcePubspecName: source.pubspecName,
+      sourcePubspecRelativePath: source.relativePath,
+      isIgnored,
+      ignoreReason
+    };
+
+    if (dep.sourceType !== 'hosted') {
+      const packageInfo: PackageInfo = {
+        ...basePackageInfo,
+        latestVersion: cleanVersion,
+        isOutdated: false,
+        updateType: 'none'
+      };
+      return packageInfo;
+    }
+
     const latestVersion = await PubDevClient.getLatestVersion(dep.name);
 
     if (!latestVersion) {
-      return null;
+      const packageInfo: PackageInfo = {
+        ...basePackageInfo,
+        latestVersion: cleanVersion,
+        isOutdated: false,
+        updateType: 'none',
+        fetchFailed: true
+      };
+      return packageInfo;
     }
 
     const treatAnyAsUpToDate = getTreatAnyAsUpToDateSetting();
@@ -252,27 +299,32 @@ async function fetchPackageInfo(
     const updateType = (treatAnyAsUpToDate && isAnyConstraint)
       ? 'none'
       : PubDevClient.getUpdateType(cleanVersion, latestVersion);
-    const ignoredEntry = ignoredPackages.find(pkg => pkg.name === dep.name);
-    const isIgnored = Boolean(ignoredEntry);
-    const ignoreReason = ignoredEntry?.reason;
 
     const packageInfo: PackageInfo = {
-      name: dep.name,
-      currentVersion: cleanVersion,
+      ...basePackageInfo,
       latestVersion: latestVersion,
-      sourceDependencySection: dep.section,
       isOutdated: isOutdated,
-      updateType: updateType,
-      sourcePubspecPath: source.pubspecPath,
-      sourcePubspecName: source.pubspecName,
-      sourcePubspecRelativePath: source.relativePath,
-      isIgnored: isIgnored,
-      ignoreReason: ignoreReason
+      updateType: updateType
     };
     return packageInfo;
   } catch (error) {
     console.error(`Error fetching ${dep.name}:`, error);
-    return null;
+    const ignoredEntry = ignoredPackages.find(pkg => pkg.name === dep.name);
+    return {
+      name: dep.name,
+      currentVersion: PubspecParser.cleanVersion(dep.version),
+      latestVersion: PubspecParser.cleanVersion(dep.version),
+      sourceDependencySection: dep.section,
+      sourceDependencyType: dep.sourceType,
+      isOutdated: false,
+      updateType: 'none',
+      fetchFailed: true,
+      sourcePubspecPath: source.pubspecPath,
+      sourcePubspecName: source.pubspecName,
+      sourcePubspecRelativePath: source.relativePath,
+      isIgnored: Boolean(ignoredEntry),
+      ignoreReason: ignoredEntry?.reason
+    };
   }
 }
 
@@ -362,7 +414,7 @@ async function refreshPackages() {
         const queue = [...workItems]; // Clone the array to act as a queue
         const totalPackages = workItems.length;
         let processedCount = 0;
-        const concurrencyLimit = 4;
+        const concurrencyLimit = getMaxConcurrentRequestsSetting();
 
         // This worker function runs in a loop as long as the queue has items
         const worker = async () => {
@@ -382,7 +434,7 @@ async function refreshPackages() {
             // Report progress immediately after THIS item finishes
             processedCount++;
             progress.report({
-              message: `${processedCount} of ${totalPackages} checked`,
+              message: `⏳ ${processedCount} of ${totalPackages} checked`,
               increment: (1 / totalPackages) * 100
             });
           }

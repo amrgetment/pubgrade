@@ -11,6 +11,12 @@ const SECTION_ORDER: DependencySection[] = [
   'dependency_overrides'
 ];
 
+const SECTION_EMOJI: Record<DependencySection, string> = {
+  dependencies: '📦',
+  dev_dependencies: '🧪',
+  dependency_overrides: '🧰'
+};
+
 export class PubspecTreeItem extends vscode.TreeItem {
   constructor(
     public readonly group: PubspecGroup,
@@ -34,9 +40,9 @@ export class DependencySectionTreeItem extends vscode.TreeItem {
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
     count: number
   ) {
-    super(section, collapsibleState);
+    super(`${SECTION_EMOJI[section]} ${section}`, collapsibleState);
     this.description = `${count} package${count === 1 ? '' : 's'}`;
-    this.tooltip = section;
+    this.tooltip = `${SECTION_EMOJI[section]} ${section}`;
     this.iconPath = new vscode.ThemeIcon('symbol-namespace');
     this.contextValue = 'dependencySectionGroup';
   }
@@ -52,45 +58,56 @@ export class PackageTreeItem extends vscode.TreeItem {
     const sectionLabel = showSectionLabel
       ? PackageTreeItem.getSectionLabel(packageInfo.sourceDependencySection)
       : undefined;
-    const sectionPrefix = sectionLabel ? `${sectionLabel} ` : '';
+    const sectionPrefix = sectionLabel ? `${SECTION_EMOJI[packageInfo.sourceDependencySection]} ${sectionLabel} ` : '';
     const sectionTooltipLine = sectionLabel ? `\nSection: ${sectionLabel}` : '';
+    const sourceInfo = PackageTreeItem.getSourceInfo(packageInfo.sourceDependencyType);
+    const sourceLine = sourceInfo ? ` ${sourceInfo.emoji}` : '';
+    const sourceTooltipLine = sourceInfo ? `\n${sourceInfo.emoji} ${sourceInfo.label}` : '';
+    const cleanedCurrentVersion = packageInfo.currentVersion || 'unknown';
 
     if (packageInfo.isIgnored) {
-      const baseDescription = `${sectionPrefix}${packageInfo.currentVersion} (ignored)`;
+      const baseDescription = `${sectionPrefix}🚫 ${cleanedCurrentVersion} (ignored)${sourceLine}`;
       this.description = packageInfo.ignoreReason ? `${baseDescription}\n${packageInfo.ignoreReason}` : baseDescription;
       this.iconPath = new vscode.ThemeIcon('eye-closed', new vscode.ThemeColor('descriptionForeground'));
       const reasonLine = packageInfo.ignoreReason ? `\nReason: ${packageInfo.ignoreReason}` : '';
-      this.tooltip = `Ignored - Updates will not be shown${sectionTooltipLine}${reasonLine}`;
+      this.tooltip = `🚫 ignored package${sectionTooltipLine}${sourceTooltipLine}${reasonLine}`;
       this.contextValue = 'ignoredPackage';
+    } else if (packageInfo.fetchFailed) {
+      this.description = `${sectionPrefix}❌ fetch failed${sourceLine}`;
+      this.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
+      this.tooltip = `❌ fetch failed${sectionTooltipLine}${sourceTooltipLine}`;
+      this.contextValue = 'fetchFailedPackage';
     } else if (packageInfo.isOutdated) {
-      this.description = `${sectionPrefix}${packageInfo.currentVersion} → ${packageInfo.latestVersion}`;
+      const updateEmoji = PackageTreeItem.getUpdateEmoji(packageInfo.updateType);
+      const updateEmojiPart = updateEmoji ? `${updateEmoji} ` : '';
+      this.description = `${sectionPrefix}⚠️ ${updateEmojiPart}${cleanedCurrentVersion} → ${packageInfo.latestVersion}${sourceLine}`;
 
       // Set icon and tooltip based on update type
       switch (packageInfo.updateType) {
         case 'major':
           this.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
-          this.tooltip = `Major update available: ${packageInfo.latestVersion} (Breaking changes possible)${sectionTooltipLine}`;
+          this.tooltip = `⚠️ outdated package\n🔥 major update${sectionTooltipLine}${sourceTooltipLine}`;
           break;
         case 'minor':
           this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'));
-          this.tooltip = `Minor update available: ${packageInfo.latestVersion} (New features)${sectionTooltipLine}`;
+          this.tooltip = `⚠️ outdated package\n🌱 minor update${sectionTooltipLine}${sourceTooltipLine}`;
           break;
         case 'patch':
           this.iconPath = new vscode.ThemeIcon('info', new vscode.ThemeColor('editorInfo.foreground'));
-          this.tooltip = `Patch update available: ${packageInfo.latestVersion} (Bug fixes)${sectionTooltipLine}`;
+          this.tooltip = `⚠️ outdated package\n🩹 patch update${sectionTooltipLine}${sourceTooltipLine}`;
           break;
         default:
           this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'));
-          this.tooltip = `Update available: ${packageInfo.latestVersion}${sectionTooltipLine}`;
+          this.tooltip = `⚠️ outdated package${sectionTooltipLine}${sourceTooltipLine}`;
       }
       this.contextValue = 'outdatedPackage';
     } else {
-      this.description = `${sectionPrefix}${packageInfo.currentVersion}`;
+      this.description = `${sectionPrefix}✅ ${cleanedCurrentVersion}${sourceLine}`;
       this.iconPath = new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'));
       if (packageInfo.currentVersion.trim().toLowerCase() === 'any') {
-        this.tooltip = `Version constraint is 'any' (not tracked for updates)${sectionTooltipLine}`;
+        this.tooltip = `✅ up-to-date package\nVersion constraint is 'any' (not tracked for updates)${sectionTooltipLine}${sourceTooltipLine}`;
       } else {
-        this.tooltip = `Up to date${sectionTooltipLine}`;
+        this.tooltip = `✅ up-to-date package${sectionTooltipLine}${sourceTooltipLine}`;
       }
       this.contextValue = 'upToDatePackage';
     }
@@ -109,6 +126,34 @@ export class PackageTreeItem extends vscode.TreeItem {
     if (!section) return undefined;
     const value = section.trim();
     return value.length > 0 ? value : undefined;
+  }
+
+  private static getSourceInfo(
+    sourceType: PackageInfo['sourceDependencyType']
+  ): { emoji: string; label: string } | undefined {
+    switch (sourceType) {
+      case 'hosted':
+        return { emoji: '🌐', label: 'from hosted pub.dev' };
+      case 'path':
+        return { emoji: '🧱', label: 'local/path dependency' };
+      case 'git':
+        return { emoji: '🔧', label: 'git dependency' };
+      default:
+        return undefined;
+    }
+  }
+
+  private static getUpdateEmoji(updateType: PackageInfo['updateType']): string {
+    switch (updateType) {
+      case 'major':
+        return '🔥';
+      case 'minor':
+        return '🌱';
+      case 'patch':
+        return '🩹';
+      default:
+        return '';
+    }
   }
 }
 
@@ -173,7 +218,8 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
 
     // Hide only up-to-date packages; keep all outdated entries visible,
     // including ignored ones, so users can still see what is being skipped.
-    return packages.filter(p => p.isOutdated);
+    // Keep fetch failures visible so dependency lookup issues are explicit.
+    return packages.filter(p => p.isOutdated || p.fetchFailed);
   }
 
   private getSectionPackages(
@@ -237,10 +283,13 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
         if (pkg.isOutdated && !pkg.isIgnored) {
           return 0; // actionable updates first
         }
-        if (pkg.isIgnored) {
-          return 1; // ignored packages before fully up-to-date
+        if (pkg.fetchFailed && !pkg.isIgnored) {
+          return 1; // lookup failures next
         }
-        return 2; // up-to-date items last
+        if (pkg.isIgnored) {
+          return 2; // ignored packages before fully up-to-date
+        }
+        return 3; // up-to-date items last
       };
 
       const visiblePackages = this.getVisiblePackages(this.packages, hideUpToDate);

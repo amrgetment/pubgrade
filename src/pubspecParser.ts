@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
-import { DependencySection, PubspecDependency } from './types';
+import { DependencySection, DependencySourceType, PubspecDependency } from './types';
 
 export class PubspecParser {
   static parse(filePath: string): PubspecDependency[] {
@@ -26,6 +26,42 @@ export class PubspecParser {
     return version.replace(/^[\^>=<]+/, '').trim();
   }
 
+  private static getDependencyVersionAndType(raw: any): { version: string; sourceType: DependencySourceType } | null {
+    if (typeof raw === 'string') {
+      return { version: raw, sourceType: 'hosted' };
+    }
+
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    if (typeof raw.path === 'string') {
+      return { version: `path:${raw.path}`, sourceType: 'path' };
+    }
+
+    if (raw.git !== undefined) {
+      if (typeof raw.git === 'string') {
+        return { version: `git:${raw.git}`, sourceType: 'git' };
+      }
+
+      if (raw.git && typeof raw.git === 'object' && typeof raw.git.url === 'string') {
+        return { version: `git:${raw.git.url}`, sourceType: 'git' };
+      }
+
+      return { version: 'git', sourceType: 'git' };
+    }
+
+    if (raw.hosted !== undefined && typeof raw.version === 'string') {
+      return { version: raw.version, sourceType: 'hosted' };
+    }
+
+    if (typeof raw.version === 'string') {
+      return { version: raw.version, sourceType: 'hosted' };
+    }
+
+    return null;
+  }
+
   private static parseSection(
     section: any,
     sectionName: DependencySection,
@@ -36,9 +72,14 @@ export class PubspecParser {
 
     Object.keys(section).forEach((name) => {
       if (skipPackages.includes(name)) return;
-      const version = section[name];
-      if (typeof version === 'string') {
-        output.push({ name, version, section: sectionName });
+      const parsed = this.getDependencyVersionAndType(section[name]);
+      if (parsed) {
+        output.push({
+          name,
+          version: parsed.version,
+          section: sectionName,
+          sourceType: parsed.sourceType
+        });
       }
     });
   }

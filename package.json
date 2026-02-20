@@ -2,7 +2,7 @@
   "name": "flutter-pubgrade",
   "displayName": "Pubgrade",
   "description": "Manage packages: check updates, view changelogs, update with one click",
-  "version": "1.7.3",
+  "version": "1.7.4",
   "publisher": "KamranBekirov",
   "icon": "resources/icon.png",
   "author": {
@@ -142,6 +142,11 @@
           "group": "inline"
         },
         {
+          "command": "pubgrade.ignorePackage",
+          "when": "view == pubgradePackages && viewItem == fetchFailedPackage",
+          "group": "inline"
+        },
+        {
           "command": "pubgrade.unignorePackage",
           "when": "view == pubgradePackages && viewItem == ignoredPackage",
           "group": "inline"
@@ -165,6 +170,13 @@
           "type": "boolean",
           "default": true,
           "description": "Treat dependencies declared with version constraint 'any' (e.g., 'intl: any') as up to date. This avoids showing them as always-outdated and prevents accidental updates from 'any' to a pinned version."
+        },
+        "pubgrade.maxConcurrentRequests": {
+          "type": "number",
+          "default": 8,
+          "minimum": 1,
+          "maximum": 20,
+          "description": "Maximum number of package version requests to run in parallel while checking updates. Increase for faster checks on fast networks; reduce if your connection is unstable."
         },
         "pubgrade.ignoredPubspecs": {
           "type": "array",

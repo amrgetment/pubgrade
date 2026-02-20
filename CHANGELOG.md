@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.7.4 - Emoji-rich dependency statuses + source awareness
+
+- Added emoji-first section labels:
+  - `📦 dependencies`
+  - `🧪 dev_dependencies`
+  - `🧰 dependency_overrides`
+- Added package status/update/source emoji indicators:
+  - `⚠️` outdated package
+  - `✅` up-to-date package
+  - `🚫` ignored package
+  - `🔥` major update
+  - `🌱` minor update
+  - `🩹` patch update
+  - `🌐` from hosted pub.dev
+  - `🧱` local/path dependency
+  - `🔧` git dependency
+- Progress notification now uses `⏳` while checking packages
+- Failed pub.dev lookups now remain visible in the list as `❌ fetch failed` instead of being silently dropped
+- Parser now detects dependency source types (hosted/path/git) for richer UI rendering
+- Added parser test coverage for hosted/path/git dependency parsing
+- Added `pubgrade.maxConcurrentRequests` (default `8`) to tune version-check parallelism
+
 ## 1.7.3 - Default actionable-only filtering
 
 - `pubgrade.hideUpToDatePackages` now defaults to `true`
