@@ -154,7 +154,7 @@
         "pubgrade.hideUpToDatePackages": {
           "type": "boolean",
           "default": true,
-          "description": "Hide packages that are already up to date and focus on updates. If no actionable updates exist, ignored updates are shown."
+          "description": "Hide packages that are already up to date and focus on updates. Ignored outdated updates remain visible."
         },
         "pubgrade.scanAllPubspecs": {
           "type": "boolean",

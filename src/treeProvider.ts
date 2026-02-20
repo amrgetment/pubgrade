@@ -171,13 +171,9 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
       return packages;
     }
 
-    const actionable = packages.filter(p => p.isOutdated && !p.isIgnored);
-    if (actionable.length > 0) {
-      return actionable;
-    }
-
-    // If there are no actionable updates, show ignored outdated packages instead.
-    return packages.filter(p => p.isOutdated && p.isIgnored);
+    // Hide only up-to-date packages; keep all outdated entries visible,
+    // including ignored ones, so users can still see what is being skipped.
+    return packages.filter(p => p.isOutdated);
   }
 
   private getSectionPackages(

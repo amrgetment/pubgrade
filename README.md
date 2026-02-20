@@ -47,7 +47,7 @@ Dependencies declared with `any` (example: `intl: any`) are treated as **up to d
 ### Focus on packages with updates
 
 Pubgrade hides up-to-date packages by default, so you focus on updates first.
-If a pubspec has no actionable updates, Pubgrade shows ignored updates so they remain visible.
+Ignored outdated updates remain visible, alongside actionable updates.
 
 - Setting: `pubgrade.hideUpToDatePackages` (default: `true`)
 

@@ -4,6 +4,7 @@
 
 - `pubgrade.hideUpToDatePackages` now defaults to `true`
 - When enabled, Pubgrade hides up-to-date packages and prioritizes actionable updates
+- When enabled, ignored outdated packages remain visible alongside actionable updates
 - If a pubspec has no actionable updates, ignored updates are shown
 - Empty pubspec groups are no longer auto-expanded
 - Added an activation notice so users know this is now the default behavior
