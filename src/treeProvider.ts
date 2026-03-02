@@ -89,7 +89,7 @@ export class PackageTreeItem extends vscode.TreeItem {
           this.tooltip = `🔥 major update${sectionTooltipLine}${sourceTooltipLine}`;
           break;
         case 'minor':
-          this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'));
+          this.iconPath = new vscode.ThemeIcon('info', new vscode.ThemeColor('editorInfo.foreground'));
           this.tooltip = `🌱 minor update${sectionTooltipLine}${sourceTooltipLine}`;
           break;
         case 'patch':
@@ -97,7 +97,7 @@ export class PackageTreeItem extends vscode.TreeItem {
           this.tooltip = `🩹 patch update${sectionTooltipLine}${sourceTooltipLine}`;
           break;
         default:
-          this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'));
+          this.iconPath = new vscode.ThemeIcon('info', new vscode.ThemeColor('editorInfo.foreground'));
           this.tooltip = `update available${sectionTooltipLine}${sourceTooltipLine}`;
       }
       this.contextValue = 'outdatedPackage';
@@ -155,6 +155,7 @@ export class PackageTreeItem extends vscode.TreeItem {
         return '';
     }
   }
+
 }
 
 export class PlaceholderTreeItem extends vscode.TreeItem {

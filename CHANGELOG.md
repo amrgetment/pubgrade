@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.6 - Reduced row icon noise
+
+- Removed hosted source indicator (`🌐`) from package rows/tooltips
+- Removed warning icon styling from outdated package rows (minor/default now use neutral info icon)
+- Kept ignored package indicator (`🚫` + eye-closed icon) unchanged
+
 ## 1.7.5 - Cleaner update indicators
 
 - Removed hosted source indicator (`🌐`) from package rows/tooltips to reduce visual noise
