@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.7 - Build metadata update detection fix
+
+- Fixed version normalization so Dart/pub build metadata is preserved during comparison
+- `+build`-only upgrades are now detected correctly (for example, `0.4.1+4` → `0.4.1+5`)
+- Added regression tests to prevent future breaks in build metadata comparison
+
 ## 1.7.6 - Reduced row icon noise
 
 - Removed hosted source indicator (`🌐`) from package rows/tooltips

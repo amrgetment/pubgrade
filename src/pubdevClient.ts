@@ -71,14 +71,19 @@ export class PubDevClient {
   }
 
   private static normalizeVersion(raw: string): string | null {
-    const cleaned = semver.clean(raw, { loose: true });
-    if (cleaned && semver.valid(cleaned)) {
-      return cleaned;
+    const parsed = semver.parse(raw.trim(), { loose: true });
+    if (!parsed) {
+      return null;
     }
-    if (semver.valid(raw)) {
-      return raw;
-    }
-    return null;
+
+    const prerelease = parsed.prerelease.length > 0
+      ? `-${parsed.prerelease.map(String).join('.')}`
+      : '';
+    const build = parsed.build.length > 0
+      ? `+${parsed.build.map(String).join('.')}`
+      : '';
+
+    return `${parsed.major}.${parsed.minor}.${parsed.patch}${prerelease}${build}`;
   }
 
   // Cache latest versions to reduce network calls (especially in monorepos).
