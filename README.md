@@ -21,6 +21,8 @@ If you like this package, consider checking [UserOrient](https://userorient.com)
 - **One-click updates** - Update to any version directly from changelog (respects `^` constraints)
 - **Automatic sorting** - Outdated packages shown first
 - **Update type indicators** - Emoji markers for major (`🔥`), minor (`🌱`), and patch (`🩹`) updates
+- **Monorepo support** - Auto-detects all `pubspec.yaml` files and groups packages by project
+- **Monorepo support** - Auto-detects all `pubspec.yaml` files and groups packages by project, while excluding generated folders like `.fvm/`
 
 ## Usage
 

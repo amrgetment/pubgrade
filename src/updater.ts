@@ -19,7 +19,6 @@ export class Updater {
         newVersion,
         section ? [section] : undefined
       );
-
       if (content === updatedContent) {
         vscode.window.showWarningMessage(`Could not update ${packageName}`);
         return false;
@@ -32,8 +31,6 @@ export class Updater {
       const terminal = vscode.window.createTerminal({ name: 'Flutter Pub Get', cwd });
       terminal.sendText('flutter pub get');
       terminal.show();
-
-      vscode.window.showInformationMessage(`Updated ${packageName} to ${newVersion}`);
       return true;
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to update ${packageName}: ${error}`);

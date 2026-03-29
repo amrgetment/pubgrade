@@ -91,6 +91,8 @@ export class ChangelogView {
   ): string {
     // Parse changelog into version sections
     const sections = this.parseChangelogSections(changelog);
+    console.log(`[Pubgrade] Changelog sections found: ${sections.length}`, sections.map(s => s.version));
+    console.log(`[Pubgrade] Raw changelog first 500 chars:`, changelog.substring(0, 500));
     const sectionsHtml = sections.map(section => {
       const date = this.versionDates.get(section.version);
       const dateHtml = date
@@ -143,6 +145,10 @@ export class ChangelogView {
       border-radius: 6px;
       border-left: 3px solid var(--vscode-textLink-foreground);
       font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
     }
     .source-info {
       margin-top: 10px;
@@ -240,7 +246,10 @@ export class ChangelogView {
   <div class="header">
     <h1>${this.escapeHtml(packageName)}</h1>
     <div class="version-info">
-      📦 Update: ${this.escapeHtml(fromVersion)} → ${this.escapeHtml(toVersion)}
+      <span>📦 Update: ${this.escapeHtml(fromVersion)} → ${this.escapeHtml(toVersion)}</span>
+      <button class="update-btn" onclick="updateToVersion('${this.escapeHtml(packageName)}', '${toVersion}')">
+        Update to latest (${this.escapeHtml(toVersion)})
+      </button>
     </div>
     ${sourcePubspecLabel ? `<div class="source-info">Pubspec: <code>${this.escapeHtml(sourcePubspecLabel)}</code></div>` : ''}
   </div>
@@ -275,8 +284,10 @@ export class ChangelogView {
     let currentContent: string[] = [];
 
     for (const line of lines) {
-      // Match version headers: ## 1.2.3, # 1.2.3, ## [1.2.3], etc.
-      const versionMatch = line.match(/^#+\s*\[?v?(\d+\.\d+\.\d+[^\]\s]*)\]?/);
+      // Match version headers in two formats:
+      // 1. Markdown headings: ## 1.2.3, # 1.2.3, ## [1.2.3]
+      // 2. Plain version lines: v4.5.3 (some authors skip markdown headings entirely)
+      const versionMatch = line.match(/^(?:#+\s*\[?v?|v)(\d+\.\d+\.\d+[^\]\s]*)\]?/);
 
       if (versionMatch) {
         // Save previous section

@@ -28,6 +28,7 @@ export interface PubspecDependency {
   version: string;
   section: DependencySection;
   sourceType: DependencySourceType;
+  hasCaret?: boolean;
 }
 
 export interface PubspecInfo {

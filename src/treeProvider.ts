@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { DependencySection, PackageInfo, PubspecGroup } from './types';
+import { PubDevClient } from './pubdevClient';
 
 function getHideUpToDatePackagesSetting(): boolean {
   return vscode.workspace.getConfiguration('pubgrade').get<boolean>('hideUpToDatePackages', true);
@@ -48,6 +49,7 @@ export class DependencySectionTreeItem extends vscode.TreeItem {
   }
 }
 
+// Leaf node — represents a single dependency
 export class PackageTreeItem extends vscode.TreeItem {
   constructor(
     public readonly packageInfo: PackageInfo,
@@ -82,7 +84,6 @@ export class PackageTreeItem extends vscode.TreeItem {
       const updateEmojiPart = updateEmoji ? `${updateEmoji} ` : '';
       this.description = `${sectionPrefix}${updateEmojiPart}${cleanedCurrentVersion} → ${packageInfo.latestVersion}${sourceLine}`;
 
-      // Set icon and tooltip based on update type
       switch (packageInfo.updateType) {
         case 'major':
           this.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
@@ -112,7 +113,6 @@ export class PackageTreeItem extends vscode.TreeItem {
       this.contextValue = 'upToDatePackage';
     }
 
-    // Add click command
     this.command = {
       command: 'pubgrade.itemClick',
       title: 'Package Actions',
@@ -202,6 +202,26 @@ export class PackageTreeProvider implements vscode.TreeDataProvider<PubgradeTree
 
   getIgnoredOutdatedCount(): number {
     return this.packages.filter(p => p.isOutdated && p.isIgnored).length;
+  }
+
+  updatePackage(name: string, newVersion: string, pubspecPath?: string) {
+    const target = this.packages.find((pkg) => {
+      if (pkg.name !== name) {
+        return false;
+      }
+
+      return !pubspecPath || pkg.sourcePubspecPath === pubspecPath;
+    });
+
+    if (!target) {
+      return;
+    }
+
+    target.currentVersion = newVersion;
+    target.fetchFailed = false;
+    target.isOutdated = PubDevClient.isOutdated(newVersion, target.latestVersion);
+    target.updateType = PubDevClient.getUpdateType(newVersion, target.latestVersion);
+    this._onDidChangeTreeData.fire();
   }
 
   refresh(): void {

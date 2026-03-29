@@ -15,18 +15,15 @@ let treeView: vscode.TreeView<any>;
 export function activate(context: vscode.ExtensionContext) {
   console.log('Flutter Pubgrade extension activated');
 
-  // Initialize tree provider
   treeProvider = new PackageTreeProvider();
   treeView = vscode.window.createTreeView('pubgradePackages', {
     treeDataProvider: treeProvider
   });
 
-  // Status bar item
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   statusBarItem.command = 'pubgrade.refresh';
   context.subscriptions.push(statusBarItem);
 
-  // Register commands
   context.subscriptions.push(
     vscode.commands.registerCommand('pubgrade.refresh', () => refreshPackages())
   );
@@ -80,7 +77,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('pubgrade.showChangelog', async (item) => {
-      if (item && item.packageInfo) {
+      if (item?.packageInfo) {
         await showChangelogAsDocument(item.packageInfo);
       }
     })
@@ -114,7 +111,6 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Add click handler for tree items
   context.subscriptions.push(
     vscode.commands.registerCommand('pubgrade.itemClick', async (item) => {
       if (!item?.packageInfo) {
@@ -128,15 +124,11 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage(`${item.packageInfo.name} is up to date (${item.packageInfo.currentVersion})`);
         return;
       }
-
-      // Directly show changelog
       await showChangelogAsDocument(item.packageInfo);
     })
   );
 
   void maybeShowDefaultHideBehaviorMessage(context);
-
-  // Auto-refresh on activation
   refreshPackages();
 
   // Auto-refresh when settings change
@@ -206,6 +198,7 @@ function getMaxConcurrentRequestsSetting(): number {
   if (!Number.isFinite(raw)) {
     return 8;
   }
+
   return Math.min(20, Math.max(1, Math.floor(raw)));
 }
 
@@ -238,78 +231,73 @@ async function findPubspecPaths(): Promise<string[] | null> {
   }
 
   const include = '**/pubspec.yaml';
-  const exclude = '**/{build,ios,macos,android,windows,linux,web}/**';
+  const exclude = '**/{build,.dart_tool,.symlinks,.plugin_symlinks,ios,macos,android,windows,linux,web,.fvm}/**';
   const pubspecUris = await vscode.workspace.findFiles(include, exclude);
-  return pubspecUris.map(u => u.fsPath);
+  return pubspecUris.map((uri) => uri.fsPath);
 }
 
 async function fetchPackageInfo(
   dep: PubspecDependency,
   ignoredPackages: IgnoredPackage[],
-  source: { pubspecPath: string; pubspecName?: string; relativePath?: string }
+  source: {
+    pubspecPath: string;
+    pubspecName?: string;
+    relativePath?: string;
+    lockVersions?: Map<string, string> | null;
+  }
 ): Promise<PackageInfo | null> {
   try {
-    const ignoredEntry = ignoredPackages.find(pkg => pkg.name === dep.name);
-    const isIgnored = Boolean(ignoredEntry);
-    const ignoreReason = ignoredEntry?.reason;
-
+    const ignoredEntry = ignoredPackages.find((pkg) => pkg.name === dep.name);
     const cleanVersion = PubspecParser.cleanVersion(dep.version);
-    const basePackageInfo = {
+    const compareVersion = dep.sourceType === 'hosted' && dep.hasCaret && source.lockVersions?.has(dep.name)
+      ? PubspecParser.cleanVersion(source.lockVersions.get(dep.name)!)
+      : cleanVersion;
+
+    const basePackageInfo: PackageInfo = {
       name: dep.name,
-      currentVersion: cleanVersion,
+      currentVersion: compareVersion,
+      latestVersion: cleanVersion,
       sourceDependencySection: dep.section,
       sourceDependencyType: dep.sourceType,
+      isOutdated: false,
+      updateType: 'none',
       sourcePubspecPath: source.pubspecPath,
       sourcePubspecName: source.pubspecName,
       sourcePubspecRelativePath: source.relativePath,
-      isIgnored,
-      ignoreReason
+      isIgnored: Boolean(ignoredEntry),
+      ignoreReason: ignoredEntry?.reason
     };
 
     if (dep.sourceType !== 'hosted') {
-      const packageInfo: PackageInfo = {
-        ...basePackageInfo,
-        latestVersion: cleanVersion,
-        isOutdated: false,
-        updateType: 'none'
-      };
-      return packageInfo;
+      return basePackageInfo;
     }
 
     const latestVersion = await PubDevClient.getLatestVersion(dep.name);
-
     if (!latestVersion) {
-      const packageInfo: PackageInfo = {
+      return {
         ...basePackageInfo,
-        latestVersion: cleanVersion,
-        isOutdated: false,
-        updateType: 'none',
         fetchFailed: true
       };
-      return packageInfo;
     }
 
     const treatAnyAsUpToDate = getTreatAnyAsUpToDateSetting();
     const isAnyConstraint = cleanVersion.trim().toLowerCase() === 'any';
-
     const isOutdated = (treatAnyAsUpToDate && isAnyConstraint)
       ? false
-      : PubDevClient.isOutdated(cleanVersion, latestVersion);
-
+      : PubDevClient.isOutdated(compareVersion, latestVersion);
     const updateType = (treatAnyAsUpToDate && isAnyConstraint)
       ? 'none'
-      : PubDevClient.getUpdateType(cleanVersion, latestVersion);
+      : PubDevClient.getUpdateType(compareVersion, latestVersion);
 
-    const packageInfo: PackageInfo = {
+    return {
       ...basePackageInfo,
-      latestVersion: latestVersion,
-      isOutdated: isOutdated,
-      updateType: updateType
+      latestVersion,
+      isOutdated,
+      updateType
     };
-    return packageInfo;
   } catch (error) {
     console.error(`Error fetching ${dep.name}:`, error);
-    const ignoredEntry = ignoredPackages.find(pkg => pkg.name === dep.name);
+    const ignoredEntry = ignoredPackages.find((pkg) => pkg.name === dep.name);
     return {
       name: dep.name,
       currentVersion: PubspecParser.cleanVersion(dep.version),
@@ -330,7 +318,9 @@ async function fetchPackageInfo(
 
 async function refreshPackages() {
   const pubspecPaths = await findPubspecPaths();
-  if (!pubspecPaths || pubspecPaths.length === 0) return;
+  if (!pubspecPaths || pubspecPaths.length === 0) {
+    return;
+  }
 
   try {
     treeView.badge = undefined;
@@ -346,43 +336,48 @@ async function refreshPackages() {
         const ignoredPackages = getIgnoredPackages();
         const ignoredPubspecs = getIgnoredPubspecs();
 
-        // Build pubspec metadata + dependency work items.
         const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
         const workspaceRootPubspecPaths = new Set(
-          workspaceFolders.map(f => path.join(f.uri.fsPath, 'pubspec.yaml'))
+          workspaceFolders.map((folder) => path.join(folder.uri.fsPath, 'pubspec.yaml'))
         );
 
         const pubspecInfos: PubspecInfo[] = [];
-        const workItems: Array<{ dep: PubspecDependency; source: { pubspecPath: string; pubspecName?: string; relativePath: string } }> = [];
+        const workItems: Array<{
+          dep: PubspecDependency;
+          source: {
+            pubspecPath: string;
+            pubspecName?: string;
+            relativePath: string;
+            lockVersions?: Map<string, string> | null;
+          };
+        }> = [];
 
-        for (const p of pubspecPaths) {
-          // In non-scanAll mode, fail fast with a helpful message when root pubspec.yaml doesn't exist.
-          if (!scanAll && !fs.existsSync(p)) {
+        for (const pubspecPath of pubspecPaths) {
+          if (!scanAll && !fs.existsSync(pubspecPath)) {
             vscode.window.showErrorMessage(
               'Root pubspec.yaml not found. Enable "pubgrade.scanAllPubspecs" to scan sub-packages, or open the folder containing pubspec.yaml.'
             );
             return;
           }
 
-          if (!fs.existsSync(p)) {
+          if (!fs.existsSync(pubspecPath)) {
             continue;
           }
 
-          const relativePath = vscode.workspace.asRelativePath(p, true);
-
-          // Only relevant in scanAll mode (grouped view). Hide ignored pubspecs.
+          const relativePath = vscode.workspace.asRelativePath(pubspecPath, true);
           if (scanAll && ignoredPubspecs.includes(relativePath)) {
             continue;
           }
 
-          const isWorkspaceRootPubspec = workspaceRootPubspecPaths.has(p);
-          const parsed = PubspecParser.parsePubspec(p);
+          const parsed = PubspecParser.parsePubspec(pubspecPath);
+          const hasCaretDeps = parsed.dependencies.some((dependency) => dependency.hasCaret);
+          const lockVersions = hasCaretDeps ? PubspecParser.parseLockFile(pubspecPath) : null;
 
           const info: PubspecInfo = {
-            pubspecPath: p,
+            pubspecPath,
             pubspecName: parsed.pubspecName,
             relativePath,
-            isWorkspaceRootPubspec,
+            isWorkspaceRootPubspec: workspaceRootPubspecPaths.has(pubspecPath),
             dependencies: parsed.dependencies
           };
           pubspecInfos.push(info);
@@ -391,15 +386,15 @@ async function refreshPackages() {
             workItems.push({
               dep,
               source: {
-                pubspecPath: p,
+                pubspecPath,
                 pubspecName: parsed.pubspecName,
-                relativePath
+                relativePath,
+                lockVersions
               }
             });
           }
         }
 
-        // No work? Just clear the tree.
         if (workItems.length === 0) {
           treeProvider.setPackages([]);
           updateBadge(0);
@@ -409,20 +404,18 @@ async function refreshPackages() {
 
         const packages: PackageInfo[] = [];
         const packagesByPubspecPath = new Map<string, PackageInfo[]>();
-
-        // --- 2. Setup the Worker Pool ---
-        const queue = [...workItems]; // Clone the array to act as a queue
+        const queue = [...workItems];
         const totalPackages = workItems.length;
         let processedCount = 0;
         const concurrencyLimit = getMaxConcurrentRequestsSetting();
 
-        // This worker function runs in a loop as long as the queue has items
         const worker = async () => {
           while (queue.length > 0) {
-            const item = queue.shift(); // Grab the next item
-            if (!item) break;
+            const item = queue.shift();
+            if (!item) {
+              break;
+            }
 
-            // Fetch data
             const result = await fetchPackageInfo(item.dep, ignoredPackages, item.source);
             if (result) {
               packages.push(result);
@@ -431,7 +424,6 @@ async function refreshPackages() {
               packagesByPubspecPath.set(result.sourcePubspecPath, list);
             }
 
-            // Report progress immediately after THIS item finishes
             processedCount++;
             progress.report({
               message: `⏳ ${processedCount} of ${totalPackages} checked`,
@@ -440,30 +432,27 @@ async function refreshPackages() {
           }
         };
 
-        // Create an array of N promises (workers)
         const workers = Array(Math.min(concurrencyLimit, totalPackages))
           .fill(null)
           .map(() => worker());
 
-        // Wait for all workers to drain the queue
         await Promise.all(workers);
 
-        // Finish up
-        const actionableOutdatedCount = packages.filter(pkg => pkg.isOutdated && !pkg.isIgnored).length;
-        const ignoredOutdatedCount = packages.filter(pkg => pkg.isOutdated && pkg.isIgnored).length;
+        const actionableOutdatedCount = packages.filter((pkg) => pkg.isOutdated && !pkg.isIgnored).length;
+        const ignoredOutdatedCount = packages.filter((pkg) => pkg.isOutdated && pkg.isIgnored).length;
 
         if (scanAll && pubspecInfos.length > 1) {
           const groups: PubspecGroup[] = pubspecInfos
-            .map(pubspec => ({
+            .map((pubspec) => ({
               pubspec,
               packages: packagesByPubspecPath.get(pubspec.pubspecPath) ?? []
             }))
             .sort((a, b) => {
-              // root pubspec(s) first, then by relative path
               const rootDiff = Number(b.pubspec.isWorkspaceRootPubspec) - Number(a.pubspec.isWorkspaceRootPubspec);
               if (rootDiff !== 0) {
                 return rootDiff;
               }
+
               return a.pubspec.relativePath.localeCompare(b.pubspec.relativePath);
             });
 
@@ -471,12 +460,13 @@ async function refreshPackages() {
         } else {
           treeProvider.setPackages(packages);
         }
+
         updateBadge(actionableOutdatedCount);
         updateStatusBar(actionableOutdatedCount, ignoredOutdatedCount);
       }
     );
   } catch (error) {
-    vscode.window.showErrorMessage(`Failed to parse pubspec.yaml: ${error}`);
+    vscode.window.showErrorMessage(`Failed to refresh packages: ${error}`);
     treeView.badge = undefined;
   }
 }

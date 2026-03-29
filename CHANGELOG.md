@@ -1,85 +1,21 @@
 # Changelog
 
-## 1.7.7 - Build metadata update detection fix
+## Unreleased
 
-- Fixed version normalization so Dart/pub build metadata is preserved during comparison
-- `+build`-only upgrades are now detected correctly (for example, `0.4.1+4` → `0.4.1+5`)
-- Added regression tests to prevent future breaks in build metadata comparison
+- Synced the feature-rich local branch on top of upstream `2.0.1`
+- Preserved build-metadata-aware update detection and regression coverage for Dart/pub versions like `1.0.0+1` → `1.0.0+2`
+- Preserved actionable-only filtering, ignore/unignore package and pubspec controls, and `any`-as-up-to-date handling
+- Preserved source-aware parsing, section-aware updates, and richer tree rendering while keeping upstream changelog parsing and `.fvm/` scanning fixes
 
-## 1.7.6 - Reduced row icon noise
+## 2.0.1
 
-- Removed hosted source indicator (`🌐`) from package rows/tooltips
-- Removed warning icon styling from outdated package rows (minor/default now use neutral info icon)
-- Kept ignored package indicator (`🚫` + eye-closed icon) unchanged
+- Exclude `.fvm/` directory from pubspec scanning
 
-## 1.7.5 - Cleaner update indicators
+## 2.0.0 - Monorepo Support
 
-- Removed hosted source indicator (`🌐`) from package rows/tooltips to reduce visual noise
-- Outdated package rows now show only the update-type emoji (`🔥` / `🌱` / `🩹`) with version transition text
-- Simplified outdated package tooltips to focus on update type
-
-## 1.7.4 - Emoji-rich dependency statuses + source awareness
-
-- Added emoji-first section labels:
-  - `📦 dependencies`
-  - `🧪 dev_dependencies`
-  - `🧰 dependency_overrides`
-- Added package status/update/source emoji indicators:
-  - `⚠️` outdated package
-  - `✅` up-to-date package
-  - `🚫` ignored package
-  - `🔥` major update
-  - `🌱` minor update
-  - `🩹` patch update
-  - `🌐` from hosted pub.dev
-  - `🧱` local/path dependency
-  - `🔧` git dependency
-- Progress notification now uses `⏳` while checking packages
-- Failed pub.dev lookups now remain visible in the list as `❌ fetch failed` instead of being silently dropped
-- Parser now detects dependency source types (hosted/path/git) for richer UI rendering
-- Added parser test coverage for hosted/path/git dependency parsing
-- Added `pubgrade.maxConcurrentRequests` (default `8`) to tune version-check parallelism
-
-## 1.7.3 - Default actionable-only filtering
-
-- `pubgrade.hideUpToDatePackages` now defaults to `true`
-- When enabled, Pubgrade hides up-to-date packages and prioritizes actionable updates
-- When enabled, ignored outdated packages remain visible alongside actionable updates
-- If a pubspec has no actionable updates, ignored updates are shown
-- Empty pubspec groups are no longer auto-expanded
-- Added an activation notice so users know this is now the default behavior
-- Added dependency section awareness (`dependencies`, `dev_dependencies`, `dependency_overrides`) in parsed package metadata
-- Fixed updater matching for packages like `patrol` so only dependency section entries are updated (`dependencies`, `dev_dependencies`, `dependency_overrides`), and top-level config blocks (for example `patrol:`) are not modified
-- In grouped pubspec view, dependencies are now nested under a section sub-level: `dependencies`, `dev_dependencies`, `dependency_overrides`
-- Section labels are shown on package rows in flat/root view, and omitted when already grouped under section nodes
-
-## 1.7.2 - Treat `any` constraints as up-to-date
-
-- New setting: `pubgrade.treatAnyAsUpToDate` (default: `true`)
-- Dependencies declared as `any` (e.g. `intl: any`) are treated as up to date by default, so they don’t appear as always-outdated
-- Improved tooltip messaging for `any` constraints
-- Manifest/schema cleanup (adds missing icons for contributed view/commands)
-
-## 1.7.1 - Hide up-to-date + build version updates
-
-- New setting: `pubgrade.hideUpToDatePackages` to hide packages that are already up to date
-- When hiding up-to-date packages in monorepo/grouped mode, pubspec groups expand by default
-- Added placeholders for pubspec groups that have no packages with updates
-- Version comparison now treats Dart/pub build numbers as updatable (e.g. `1.0.0+2` > `1.0.0+1`)
-
-## 1.7.0 - Monorepo Pubspec Scanning
-
-- Monorepo support (opt-in): scan all `pubspec.yaml` files in the workspace via `pubgrade.scanAllPubspecs` (default: false)
-- Results are grouped by pubspec (label from pubspec `name:` with relative-path fallback)
-- Pubspec groups are sorted by path with root-level pubspec(s) shown first
-- Ignore pubspec groups to hide them from the monorepo scan (workspace setting `pubgrade.ignoredPubspecs`)
-- Reduced pub.dev traffic by caching latest-version lookups across pubspecs
-
-## 1.6.0 - Package Ignore Controls
-
-- Ignore/unignore packages directly from the Pubgrade tree with inline actions
-- Ignored packages stay visible with an eye-closed icon and are excluded from outdated counts
-- Workspace setting `pubgrade.ignoredPackages` stores ignore reasons and can be managed via the new command
+- Monorepo support: auto-detects all pubspec.yaml files and groups packages by project
+- Smarter version checks using pubspec.lock for caret dependencies
+- Lots of bug fixes and improvements to make things faster and more reliable
 
 ## 1.5.0 - Respect Version Constraints
 
