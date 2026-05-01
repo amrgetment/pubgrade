@@ -21,7 +21,6 @@ If you like this package, consider checking [UserOrient](https://userorient.com)
 - **One-click updates** - Update to any version directly from changelog (respects `^` constraints)
 - **Automatic sorting** - Outdated packages shown first
 - **Update type indicators** - Emoji markers for major (`🔥`), minor (`🌱`), and patch (`🩹`) updates
-- **Monorepo support** - Auto-detects all `pubspec.yaml` files and groups packages by project
 - **Monorepo support** - Auto-detects all `pubspec.yaml` files and groups packages by project, while excluding generated folders like `.fvm/`
 
 ## Usage
@@ -70,7 +69,7 @@ If you work in a monorepo (melos, `packages/*`, `apps/*`, etc.) you can enable s
 When enabled:
 
 - Pubgrade finds `**/pubspec.yaml` across **all workspace folders** (multi-root supported)
-- It ignores pubspecs inside these folders: `build`, `ios`, `macos`, `android`, `windows`, `linux`, `web`
+- It ignores pubspecs inside these folders: `build`, `.dart_tool`, `.symlinks`, `.plugin_symlinks`, `ios`, `macos`, `android`, `windows`, `linux`, `web`, `.fvm`
 - The tree is grouped by pubspec (group label uses pubspec `name:`; fallback is relative path)
 - Pubspec groups are sorted by path with root-level pubspec(s) shown first
 
