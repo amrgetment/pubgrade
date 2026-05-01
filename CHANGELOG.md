@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.1
+## 4.0.0
 
 - Exclude `.fvm/` directory from pubspec scanning
 - Cache fetched package changelogs during a session and clear the cache on refresh to avoid stale results
