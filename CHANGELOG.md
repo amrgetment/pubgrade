@@ -3,6 +3,7 @@
 ## 2.0.1
 
 - Exclude `.fvm/` directory from pubspec scanning
+- Cache fetched package changelogs during a session and clear the cache on refresh to avoid stale results
 
 ## 2.0.0 - Monorepo Support
 
